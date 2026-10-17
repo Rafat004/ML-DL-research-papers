@@ -179,13 +179,20 @@ const HubStore = (() => {
         const storage = getFirebaseStorage();
         if (storage && diagramData.startsWith('data:image/')) {
             try {
-                const ext = diagramData.split(';')[0].split('/')[1] || 'png';
-                const fileRef = storage.ref(`diagrams/${articleId}-${Date.now()}.${ext}`);
-                const snap = await fileRef.putString(diagramData, 'data_url');
-                const downloadUrl = await snap.ref.getDownloadURL();
-                return downloadUrl;
+                const uploadPromise = (async () => {
+                    const ext = diagramData.split(';')[0].split('/')[1] || 'png';
+                    const fileRef = storage.ref(`diagrams/${articleId}-${Date.now()}.${ext}`);
+                    const snap = await fileRef.putString(diagramData, 'data_url');
+                    return await snap.ref.getDownloadURL();
+                })();
+
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Storage timeout')), 2500)
+                );
+
+                return await Promise.race([uploadPromise, timeoutPromise]);
             } catch (err) {
-                console.warn('Firebase Storage upload failed, storing data inline:', err);
+                console.warn('Firebase Storage upload timeout or failed, keeping inline:', err.message);
                 return diagramData;
             }
         }
@@ -255,12 +262,12 @@ const HubStore = (() => {
         if (articleRecord.topicName) {
             const topic = getTopic(articleRecord.topicSlug);
             if (!topic) {
-                await saveTopic({
+                saveTopic({
                     name: articleRecord.topicName,
                     icon: '🧠',
                     tag: 'Custom Topic',
                     description: `Research notes and implementations for ${articleRecord.topicName}`
-                });
+                }).catch(console.error);
             }
         }
 
@@ -268,13 +275,16 @@ const HubStore = (() => {
         const db = getFirebaseDb();
         if (db) {
             try {
-                await db.collection('articles').doc(articleRecord.id).set(articleRecord);
+                const writePromise = db.collection('articles').doc(articleRecord.id).set(articleRecord);
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Cloud write timeout')), 3000)
+                );
+                await Promise.race([writePromise, timeoutPromise]);
             } catch (err) {
-                console.error('Failed to save article to Firebase:', err);
+                console.warn('Firebase save note:', err.message);
                 if (err.code === 'permission-denied') {
                     throw new Error('Firebase Permission Denied! Please check your Firestore Rules in Firebase Console.');
                 }
-                throw err;
             }
         }
 

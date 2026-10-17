@@ -53,6 +53,7 @@ const FirebaseConfig = (() => {
     let db = null;
     let storage = null;
     let auth = null;
+    let cachedUser = null;
 
     function init() {
         if (!isConfigured()) {
@@ -75,6 +76,9 @@ const FirebaseConfig = (() => {
             db = firebase.firestore();
             storage = firebase.storage();
             auth = firebase.auth();
+            auth.onAuthStateChanged(u => {
+                cachedUser = u;
+            });
 
             // Enable offline persistence for Firestore if available
             try {
@@ -133,8 +137,7 @@ const FirebaseConfig = (() => {
         },
 
         getCurrentUser: () => {
-            const a = auth || (init() ? auth : null);
-            return a ? a.currentUser : null;
+            return cachedUser || (auth ? auth.currentUser : null);
         }
     };
 })();

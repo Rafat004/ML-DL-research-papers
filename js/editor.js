@@ -522,6 +522,7 @@ if __name__ == "__main__":
 
         try {
             markClean('Saving...');
+            btnSaveLocal.disabled = true;
             const saved = await HubStore.saveArticle(data);
             currentArticleId = saved.id;
             const isCloud = HubStore.isFirebaseConnected();
@@ -535,6 +536,8 @@ if __name__ == "__main__":
         } catch (e) {
             console.error('Save error:', e);
             showToast(`Error saving article: ${e.message}`, 'error');
+        } finally {
+            btnSaveLocal.disabled = false;
         }
     }
 
