@@ -82,9 +82,17 @@ const HubStore = (() => {
         return topicRecord;
     }
 
-    function deleteTopic(topicId) {
-        let topics = getTopics().filter(t => t.id !== topicId);
+    function deleteTopic(topicIdOrSlug) {
+        const topic = getTopic(topicIdOrSlug);
+        const targetId = topic ? topic.id : topicIdOrSlug;
+        const targetSlug = topic ? topic.slug : topicIdOrSlug;
+
+        let topics = getTopics().filter(t => t.id !== targetId && t.slug !== targetSlug);
         localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(topics));
+
+        // Also remove articles belonging to this topic
+        let articles = getArticles().filter(a => a.topicId !== targetId && a.topicSlug !== targetSlug);
+        localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(articles));
         return true;
     }
 
