@@ -44,6 +44,12 @@
             </nav>
 
             <div class="header-actions">
+                <!-- CLOUD SYNC BUTTON -->
+                <button type="button" class="btn-cloud" id="btn-cloud-sync" title="Firebase Cloud Status">
+                    <span class="cloud-status-dot" id="cloud-status-dot"></span>
+                    <span id="cloud-status-text">Cloud Sync</span>
+                </button>
+
                 <!-- PROMINENT PLUS / CREATE BUTTON -->
                 <button type="button" class="btn btn-create" id="btn-header-create-topic"
                     title="Create a new research topic">
@@ -133,26 +139,25 @@
         </div>
     </section>
 
-    <!-- ========== BACKUP & GITHUB SYNC BAR ========== -->
+    <!-- ========== BACKUP & FIREBASE CLOUD SYNC BAR ========== -->
     <section class="sync-banner-section">
         <div class="section-inner">
             <div class="sync-banner-card">
                 <div class="sync-banner-info">
-                    <div class="sync-icon">💾</div>
+                    <div class="sync-icon">☁️</div>
                     <div>
-                        <h4>Your Data, Your Control</h4>
-                        <p>All notes save instantly in your local workspace. You can export a JSON backup or configure
-                            GitHub cloud sync anytime.</p>
+                        <h4 id="cloud-banner-title">Firebase Cloud Synchronization</h4>
+                        <p id="cloud-banner-desc">Sync all notes, derivations, and diagrams to Google Firebase so they are permanently live on mobile, desktop, and visible to everyone.</p>
                     </div>
                 </div>
                 <div class="sync-banner-actions">
-                    <button type="button" class="btn btn-sm btn-secondary" id="btn-export-backup">Export Backup
-                        (JSON)</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="btn-banner-cloud">⚡ Connect Cloud</button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="btn-upload-local-cloud">Upload Local to Cloud</button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="btn-export-backup">Export JSON</button>
                     <label class="btn btn-sm btn-secondary btn-file-import">
-                        <span>Import Backup</span>
+                        <span>Import JSON</span>
                         <input type="file" id="file-import-backup" accept=".json" style="display:none;">
                     </label>
-                    <a href="topics.html" class="btn btn-sm btn-primary">View All Topics ↗</a>
                 </div>
             </div>
         </div>
@@ -238,7 +243,65 @@
         </div>
     </footer>
 
-    <!-- Scripts -->
+    <!-- ========== FIREBASE CLOUD SYNC MODAL ========== -->
+    <div class="modal-overlay" id="modal-cloud-sync">
+        <div class="modal-card" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>⚡ Firebase Cloud Synchronization</h3>
+                <button type="button" class="modal-close" id="btn-close-cloud-modal" aria-label="Close modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="cloud-status-card" style="margin-bottom: 1.25rem; padding: 1rem; border-radius: var(--radius-md); background: var(--color-bg-alt); border: 1px solid var(--color-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; font-size: 0.9rem;">Status:</span>
+                        <div style="display: flex; align-items: center; gap: 0.45rem;">
+                            <span id="cloud-modal-badge" class="cloud-status-dot"></span>
+                            <span id="cloud-modal-status-text" style="font-size: 0.85rem; font-weight: 500;">Checking connection...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="cloud-connected-actions" style="display: none; margin-bottom: 1.25rem;">
+                    <p style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.75rem;">
+                        Your hub is connected to Firebase Firestore! Any changes save to the cloud and sync automatically to all devices.
+                    </p>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-sm btn-primary" id="btn-cloud-sync-now">🔄 Sync Now</button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="btn-cloud-upload-all">🚀 Upload Local Notes to Cloud</button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="btn-cloud-disconnect" style="color: var(--color-danger, #ef4444);">Disconnect</button>
+                    </div>
+                </div>
+
+                <div id="cloud-connect-form">
+                    <p style="font-size: 0.86rem; line-height: 1.5; color: var(--color-text); margin-bottom: 0.75rem;">
+                        <strong>Paste your Firebase config:</strong> Create a free project at <a href="https://console.firebase.google.com" target="_blank" rel="noopener" class="form-link">console.firebase.google.com ↗</a>, go to <em>Project Settings</em> → <em>Add Web App (&lt;/&gt;)</em>, and paste the config snippet below:
+                    </p>
+                    <div class="form-group">
+                        <textarea id="cloud-config-input" class="cloud-config-textarea" placeholder='const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef"
+};'></textarea>
+                        <span class="form-help">Tip: You can paste the whole config object snippet. It will automatically extract your keys and save them.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-cloud-modal">Close</button>
+                <button type="button" class="btn btn-primary" id="btn-save-cloud-config">Save & Connect Cloud</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
     <script src="js/hub-store.js"></script>
     <script src="js/main.js"></script>
 </body>

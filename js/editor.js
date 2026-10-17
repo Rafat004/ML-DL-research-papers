@@ -500,15 +500,18 @@ if __name__ == "__main__":
         };
     }
 
-    function saveArticleLocally() {
+    async function saveArticleLocally() {
         const data = getFormData();
         if (!data) return;
 
         try {
-            const saved = HubStore.saveArticle(data);
+            markClean('Saving...');
+            const saved = await HubStore.saveArticle(data);
             currentArticleId = saved.id;
-            markClean('Saved locally');
-            showToast('Research note saved successfully!', 'success');
+            const isCloud = HubStore.isFirebaseConnected();
+            const statusMsg = isCloud ? 'Saved to Cloud & Local!' : 'Saved locally';
+            markClean(statusMsg);
+            showToast(`Research note saved! (${statusMsg})`, 'success');
             
             // Update URL without reloading
             const newUrl = `${window.location.pathname}?edit=${saved.id}`;
@@ -587,7 +590,7 @@ if __name__ == "__main__":
     btnCloseTopicModal.addEventListener('click', closeTopicModal);
     btnCancelTopicModal.addEventListener('click', closeTopicModal);
 
-    btnSaveNewTopic.addEventListener('click', () => {
+    btnSaveNewTopic.addEventListener('click', async () => {
         const name = document.getElementById('new-topic-name').value.trim();
         if (!name) {
             showToast('Please enter a topic name', 'warning');
@@ -598,16 +601,25 @@ if __name__ == "__main__":
         const tag = document.getElementById('new-topic-tag').value.trim() || 'Custom';
         const desc = document.getElementById('new-topic-desc').value.trim();
 
-        const savedTopic = HubStore.saveTopic({
-            name: name,
-            icon: icon,
-            tag: tag,
-            description: desc
-        });
+        btnSaveNewTopic.disabled = true;
+        btnSaveNewTopic.textContent = 'Saving...';
+        try {
+            const savedTopic = await HubStore.saveTopic({
+                name: name,
+                icon: icon,
+                tag: tag,
+                description: desc
+            });
 
-        renderTopicOptions(savedTopic.id);
-        closeTopicModal();
-        showToast(`Topic "${savedTopic.name}" created!`, 'success');
+            renderTopicOptions(savedTopic.id);
+            closeTopicModal();
+            showToast(`Topic "${savedTopic.name}" created!`, 'success');
+        } catch (e) {
+            showToast(`Error creating topic: ${e.message}`, 'error');
+        } finally {
+            btnSaveNewTopic.disabled = false;
+            btnSaveNewTopic.textContent = 'Save Topic';
+        }
     });
 
     /* ---- GitHub Settings Modal (Option 3) ---- */

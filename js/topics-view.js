@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initTopicsView();
 });
 
+window.addEventListener('hub:synced', () => {
+    initTopicsView();
+});
+
 function initTopicsView() {
     const container = document.getElementById('topics-view-container');
     const pageTitle = document.getElementById('topics-page-title');
@@ -31,7 +35,7 @@ function initTopicsView() {
     btnCloseModal?.addEventListener('click', closeModal);
     btnCancelModal?.addEventListener('click', closeModal);
 
-    btnSaveTopic?.addEventListener('click', () => {
+    btnSaveTopic?.addEventListener('click', async () => {
         const name = document.getElementById('page-topic-name').value.trim();
         if (!name) {
             alert('Please enter a topic name');
@@ -42,9 +46,18 @@ function initTopicsView() {
         const tag = document.getElementById('page-topic-tag').value.trim() || 'Category';
         const desc = document.getElementById('page-topic-desc').value.trim();
 
-        const saved = HubStore.saveTopic({ name, icon, tag, description: desc });
-        closeModal();
-        window.location.href = `topics.html?topic=${saved.slug}`;
+        btnSaveTopic.disabled = true;
+        btnSaveTopic.textContent = 'Saving...';
+        try {
+            const saved = await HubStore.saveTopic({ name, icon, tag, description: desc });
+            closeModal();
+            window.location.href = `topics.html?topic=${saved.slug}`;
+        } catch (e) {
+            alert(`Error saving topic: ${e.message}`);
+        } finally {
+            btnSaveTopic.disabled = false;
+            btnSaveTopic.textContent = 'Create Topic';
+        }
     });
 
     if (topicSlug) {

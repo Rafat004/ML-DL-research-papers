@@ -11,7 +11,15 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearch();
     initBackupHandlers();
     initHomeTopicModal();
+    initCloudSyncModal();
     initKaTeX();
+});
+
+window.addEventListener('hub:synced', () => {
+    initDynamicHub();
+    if (typeof updateCloudStatusUI === 'function') {
+        updateCloudStatusUI();
+    }
 });
 
 /* ---- Header scroll effect ---- */
@@ -438,4 +446,195 @@ function initKaTeX() {
             throwOnError: false
         });
     }
+}
+
+/* ============================================================
+   Firebase Cloud Sync Controls & Modal Handlers
+   ============================================================ */
+function initCloudSyncModal() {
+    const btnHeaderSync = document.getElementById('btn-cloud-sync');
+    const btnBannerCloud = document.getElementById('btn-banner-cloud');
+    const modal = document.getElementById('modal-cloud-sync');
+    const btnClose = document.getElementById('btn-close-cloud-modal');
+    const btnCancel = document.getElementById('btn-cancel-cloud-modal');
+    const btnSave = document.getElementById('btn-save-cloud-config');
+    const btnSyncNow = document.getElementById('btn-cloud-sync-now');
+    const btnUploadAll = document.getElementById('btn-cloud-upload-all');
+    const btnBannerUpload = document.getElementById('btn-upload-local-cloud');
+    const btnDisconnect = document.getElementById('btn-cloud-disconnect');
+
+    const openModal = () => {
+        if (!modal) return;
+        updateCloudStatusUI();
+        modal.classList.add('active');
+    };
+
+    const closeModal = () => {
+        if (!modal) return;
+        modal.classList.remove('active');
+    };
+
+    btnHeaderSync?.addEventListener('click', openModal);
+    btnBannerCloud?.addEventListener('click', openModal);
+    btnClose?.addEventListener('click', closeModal);
+    btnCancel?.addEventListener('click', closeModal);
+
+    // Save & Connect Firebase Config
+    btnSave?.addEventListener('click', async () => {
+        const rawInput = document.getElementById('cloud-config-input')?.value.trim();
+        if (!rawInput) {
+            alert('Please paste your Firebase configuration snippet first.');
+            return;
+        }
+
+        try {
+            const parsedConfig = parseFirebaseConfigString(rawInput);
+            if (!parsedConfig.apiKey || !parsedConfig.projectId) {
+                throw new Error('Could not find apiKey or projectId in the pasted text.');
+            }
+
+            FirebaseConfig.saveConfig(parsedConfig);
+            const initialized = FirebaseConfig.init();
+
+            if (initialized) {
+                alert('Firebase connected successfully! Syncing your data now...');
+                await HubStore.syncFromFirebase();
+                updateCloudStatusUI();
+                closeModal();
+            } else {
+                alert('Saved configuration, but Firebase failed to initialize. Please verify your keys.');
+            }
+        } catch (err) {
+            alert(`Error parsing Firebase configuration:\n${err.message}`);
+        }
+    });
+
+    // Sync Now
+    btnSyncNow?.addEventListener('click', async () => {
+        btnSyncNow.disabled = true;
+        btnSyncNow.textContent = 'Syncing...';
+        try {
+            const res = await HubStore.syncFromFirebase();
+            if (res) {
+                alert(`Cloud Sync Complete!\nTopics: ${res.topicsCount}\nArticles: ${res.articlesCount}`);
+                initDynamicHub();
+            } else {
+                alert('Sync failed or no new cloud data found.');
+            }
+        } catch (e) {
+            alert(`Sync error: ${e.message}`);
+        } finally {
+            btnSyncNow.disabled = false;
+            btnSyncNow.textContent = '🔄 Sync Now';
+        }
+    });
+
+    // Upload Local Notes to Cloud
+    const handleUploadLocal = async () => {
+        if (!HubStore.isFirebaseConnected()) {
+            openModal();
+            return;
+        }
+
+        const confirmUpload = confirm('Upload all existing local topics and notes from this laptop to Firebase Cloud?');
+        if (!confirmUpload) return;
+
+        try {
+            const res = await HubStore.uploadLocalDataToFirebase();
+            alert(`Success! Uploaded ${res.topicsCount} topics and ${res.articlesCount} notes to your Firebase Cloud!\n\nThey are now visible on your mobile phone and to everyone in the world.`);
+            closeModal();
+            initDynamicHub();
+        } catch (err) {
+            alert(`Upload failed: ${err.message}`);
+        }
+    };
+
+    btnUploadAll?.addEventListener('click', handleUploadLocal);
+    btnBannerUpload?.addEventListener('click', handleUploadLocal);
+
+    // Disconnect
+    btnDisconnect?.addEventListener('click', () => {
+        if (confirm('Disconnect from this Firebase project on this browser?')) {
+            FirebaseConfig.clearConfig();
+            updateCloudStatusUI();
+            alert('Disconnected from Firebase.');
+        }
+    });
+
+    // Initial status check
+    updateCloudStatusUI();
+}
+
+function updateCloudStatusUI() {
+    const isConnected = typeof FirebaseConfig !== 'undefined' && FirebaseConfig.isConfigured();
+    const cfg = isConnected ? FirebaseConfig.getConfig() : null;
+
+    // Header dot & text
+    const headerDot = document.getElementById('cloud-status-dot');
+    const headerText = document.getElementById('cloud-status-text');
+    if (headerDot) {
+        if (isConnected) headerDot.classList.add('connected');
+        else headerDot.classList.remove('connected');
+    }
+    if (headerText) {
+        headerText.textContent = isConnected ? 'Cloud Active' : 'Cloud Sync';
+    }
+
+    // Modal elements
+    const modalBadge = document.getElementById('cloud-modal-badge');
+    const modalStatusText = document.getElementById('cloud-modal-status-text');
+    const connectedActions = document.getElementById('cloud-connected-actions');
+    const connectForm = document.getElementById('cloud-connect-form');
+    const btnBannerUpload = document.getElementById('btn-upload-local-cloud');
+    const bannerTitle = document.getElementById('cloud-banner-title');
+    const bannerDesc = document.getElementById('cloud-banner-desc');
+
+    if (modalBadge) {
+        if (isConnected) modalBadge.classList.add('connected');
+        else modalBadge.classList.remove('connected');
+    }
+
+    if (isConnected) {
+        if (modalStatusText) modalStatusText.textContent = `Connected to Firebase project: "${cfg.projectId}"`;
+        if (connectedActions) connectedActions.style.display = 'block';
+        if (connectForm) connectForm.style.display = 'none';
+        if (btnBannerUpload) btnBannerUpload.style.display = 'inline-block';
+        if (bannerTitle) bannerTitle.textContent = '🟢 Firebase Cloud Active';
+        if (bannerDesc) bannerDesc.textContent = `Connected to project "${cfg.projectId}". Notes are automatically synchronized across all your devices and the live site.`;
+    } else {
+        if (modalStatusText) modalStatusText.textContent = 'Not connected to Firebase yet.';
+        if (connectedActions) connectedActions.style.display = 'none';
+        if (connectForm) connectForm.style.display = 'block';
+        if (btnBannerUpload) btnBannerUpload.style.display = 'none';
+        if (bannerTitle) bannerTitle.textContent = 'Firebase Cloud Synchronization';
+        if (bannerDesc) bannerDesc.textContent = 'Connect Firebase to keep your research notes synchronized across your laptop, mobile phone, and the world.';
+    }
+}
+
+/**
+ * Robust parser to extract Firebase keys from raw paste
+ * Can parse standard JSON or full JS `const firebaseConfig = { ... }` block
+ */
+function parseFirebaseConfigString(str) {
+    // Try clean JSON parse first
+    try {
+        const directJson = JSON.parse(str);
+        if (directJson.apiKey) return directJson;
+    } catch (e) {}
+
+    // Extract values with regex
+    const extract = (key) => {
+        const regex = new RegExp(`["']?${key}["']?\\s*:\\s*["']([^"']+)["']`, 'i');
+        const m = str.match(regex);
+        return m ? m[1].trim() : '';
+    };
+
+    return {
+        apiKey: extract('apiKey'),
+        authDomain: extract('authDomain'),
+        projectId: extract('projectId'),
+        storageBucket: extract('storageBucket'),
+        messagingSenderId: extract('messagingSenderId'),
+        appId: extract('appId')
+    };
 }

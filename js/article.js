@@ -18,6 +18,19 @@ function initArticleViewer() {
 
     const article = HubStore.getArticle(articleId);
     if (!article) {
+        if (typeof FirebaseConfig !== 'undefined' && FirebaseConfig.isConfigured()) {
+            const articleTitleEl = document.getElementById('article-title');
+            if (articleTitleEl) articleTitleEl.textContent = 'Loading note from Cloud...';
+            window.addEventListener('hub:synced', () => {
+                const fetched = HubStore.getArticle(articleId);
+                if (fetched) {
+                    initArticleViewer();
+                } else {
+                    showArticleError('Article not found in local or cloud storage.');
+                }
+            }, { once: true });
+            return;
+        }
         showArticleError('Article not found. It may have been deleted or moved.');
         return;
     }
@@ -163,9 +176,10 @@ function initArticleViewer() {
     // Delete button action
     const btnDelete = document.getElementById('btn-delete-article');
     if (btnDelete) {
-        btnDelete.addEventListener('click', () => {
+        btnDelete.addEventListener('click', async () => {
             if (confirm(`Are you sure you want to delete "${article.title}"? This cannot be undone.`)) {
-                HubStore.deleteArticle(article.id);
+                btnDelete.disabled = true;
+                await HubStore.deleteArticle(article.id);
                 alert('Article deleted.');
                 window.location.href = 'index.html';
             }

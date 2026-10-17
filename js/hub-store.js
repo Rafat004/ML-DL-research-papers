@@ -1,7 +1,7 @@
 /* ============================================================
    Deep Learning Knowledge Hub — Data Store & Sync Manager
-   Handles LocalStorage, IndexedDB, GitHub REST API commits,
-   Markdown parsing, and JSON Backup/Restore.
+   Handles LocalStorage, Firebase Firestore & Storage,
+   GitHub REST API commits, Markdown parsing, and JSON Backup/Restore.
    ============================================================ */
 
 const HubStore = (() => {
@@ -9,10 +9,10 @@ const HubStore = (() => {
     const STORAGE_KEY_ARTICLES = 'dl_hub_articles_v1';
     const STORAGE_KEY_GITHUB = 'dl_hub_github_config_v1';
 
-    // Default topics to start with if completely empty (or empty array)
-    // We start completely clean as the user requested "i dont want this topics that u have written, i want to add topics of my own"
     const INITIAL_TOPICS = [];
     const INITIAL_ARTICLES = [];
+
+    let realtimeActive = false;
 
     /* ---- Helper: Generate unique ID ---- */
     function uid(prefix = 'id') {
@@ -28,6 +28,25 @@ const HubStore = (() => {
             .replace(/\s+/g, '-')
             .replace(/[^\w\-]+/g, '')
             .replace(/\-\-+/g, '-');
+    }
+
+    /* ---- Firebase Helper ---- */
+    function getFirebaseDb() {
+        if (typeof FirebaseConfig !== 'undefined' && FirebaseConfig.isConfigured()) {
+            return FirebaseConfig.getDb();
+        }
+        return null;
+    }
+
+    function getFirebaseStorage() {
+        if (typeof FirebaseConfig !== 'undefined' && FirebaseConfig.isConfigured()) {
+            return FirebaseConfig.getStorage();
+        }
+        return null;
+    }
+
+    function isFirebaseConnected() {
+        return Boolean(getFirebaseDb());
     }
 
     /* ---- Topics Storage ---- */
@@ -49,7 +68,7 @@ const HubStore = (() => {
         return topics.find(t => t.id === idOrSlug || t.slug === idOrSlug) || null;
     }
 
-    function saveTopic(topicData) {
+    async function saveTopic(topicData) {
         const topics = getTopics();
         const slug = slugify(topicData.name || 'untitled-topic');
         
@@ -79,10 +98,21 @@ const HubStore = (() => {
         }
 
         localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(topics));
+
+        // Save to Firebase Firestore if connected
+        const db = getFirebaseDb();
+        if (db) {
+            try {
+                await db.collection('topics').doc(topicRecord.id).set(topicRecord);
+            } catch (err) {
+                console.error('Failed to save topic to Firebase:', err);
+            }
+        }
+
         return topicRecord;
     }
 
-    function deleteTopic(topicIdOrSlug) {
+    async function deleteTopic(topicIdOrSlug) {
         const topic = getTopic(topicIdOrSlug);
         const targetId = topic ? topic.id : topicIdOrSlug;
         const targetSlug = topic ? topic.slug : topicIdOrSlug;
@@ -90,9 +120,28 @@ const HubStore = (() => {
         let topics = getTopics().filter(t => t.id !== targetId && t.slug !== targetSlug);
         localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(topics));
 
-        // Also remove articles belonging to this topic
+        // Also remove articles belonging to this topic locally
         let articles = getArticles().filter(a => a.topicId !== targetId && a.topicSlug !== targetSlug);
         localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(articles));
+
+        // Delete from Firebase Firestore if connected
+        const db = getFirebaseDb();
+        if (db) {
+            try {
+                await db.collection('topics').doc(targetId).delete();
+
+                // Delete matching articles from Firestore
+                const artsSnap = await db.collection('articles')
+                    .where('topicId', '==', targetId)
+                    .get();
+                const batch = db.batch();
+                artsSnap.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+            } catch (err) {
+                console.error('Failed to delete topic from Firebase:', err);
+            }
+        }
+
         return true;
     }
 
@@ -119,9 +168,35 @@ const HubStore = (() => {
         return articles.find(a => a.id === idOrSlug || a.slug === idOrSlug) || null;
     }
 
-    function saveArticle(articleData) {
+    async function uploadDiagramIfNeeded(articleId, diagramData) {
+        if (!diagramData) return '';
+        // If already an HTTP/HTTPS URL, no upload needed
+        if (diagramData.startsWith('http://') || diagramData.startsWith('https://')) {
+            return diagramData;
+        }
+
+        // If it's a base64 data URL and Firebase Storage is available
+        const storage = getFirebaseStorage();
+        if (storage && diagramData.startsWith('data:image/')) {
+            try {
+                const ext = diagramData.split(';')[0].split('/')[1] || 'png';
+                const fileRef = storage.ref(`diagrams/${articleId}-${Date.now()}.${ext}`);
+                const snap = await fileRef.putString(diagramData, 'data_url');
+                const downloadUrl = await snap.ref.getDownloadURL();
+                return downloadUrl;
+            } catch (err) {
+                console.warn('Firebase Storage upload failed, storing data inline:', err);
+                return diagramData;
+            }
+        }
+
+        return diagramData;
+    }
+
+    async function saveArticle(articleData) {
         const articles = getArticles();
         const slug = slugify(articleData.title || 'untitled-article');
+        const artId = articleData.id || uid('art');
         
         let existingIndex = -1;
         if (articleData.id) {
@@ -141,8 +216,18 @@ const HubStore = (() => {
             tags = articleData.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
         }
 
+        // Upload diagram to Firebase Storage if available
+        let diagramUrl = articleData.diagram || '';
+        if (diagramUrl.startsWith('data:image/')) {
+            try {
+                diagramUrl = await uploadDiagramIfNeeded(artId, diagramUrl);
+            } catch (e) {
+                console.warn('Error uploading diagram:', e);
+            }
+        }
+
         const articleRecord = {
-            id: articleData.id || uid('art'),
+            id: artId,
             title: (articleData.title || 'Untitled Article').trim(),
             slug: slug,
             topicId: articleData.topicId || '',
@@ -152,7 +237,7 @@ const HubStore = (() => {
             excerpt: (articleData.excerpt || '').trim() || generateExcerpt(articleData.content || ''),
             tags: tags,
             content: articleData.content || '',
-            diagram: articleData.diagram || '', // base64 or URL
+            diagram: diagramUrl,
             diagramCaption: (articleData.diagramCaption || '').trim(),
             createdAt: existingIndex >= 0 ? articles[existingIndex].createdAt : now,
             updatedAt: now
@@ -166,11 +251,11 @@ const HubStore = (() => {
 
         localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(articles));
 
-        // Ensure topic exists
+        // Ensure topic exists locally and in cloud
         if (articleRecord.topicName) {
             const topic = getTopic(articleRecord.topicSlug);
             if (!topic) {
-                saveTopic({
+                await saveTopic({
                     name: articleRecord.topicName,
                     icon: '🧠',
                     tag: 'Custom Topic',
@@ -179,18 +264,38 @@ const HubStore = (() => {
             }
         }
 
+        // Save to Firebase Firestore if connected
+        const db = getFirebaseDb();
+        if (db) {
+            try {
+                await db.collection('articles').doc(articleRecord.id).set(articleRecord);
+            } catch (err) {
+                console.error('Failed to save article to Firebase:', err);
+            }
+        }
+
         return articleRecord;
     }
 
-    function deleteArticle(articleId) {
+    async function deleteArticle(articleId) {
         let articles = getArticles().filter(a => a.id !== articleId);
         localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(articles));
+
+        // Delete from Firebase Firestore if connected
+        const db = getFirebaseDb();
+        if (db) {
+            try {
+                await db.collection('articles').doc(articleId).delete();
+            } catch (err) {
+                console.error('Failed to delete article from Firebase:', err);
+            }
+        }
+
         return true;
     }
 
     function generateExcerpt(content, maxLen = 160) {
         if (!content) return '';
-        // strip markdown formatting
         const plain = content
             .replace(/#+\s+/g, '')
             .replace(/\$\$[\s\S]*?\$\$/g, '[math formula]')
@@ -214,7 +319,6 @@ const HubStore = (() => {
 
         articles.forEach(art => {
             if (art.content && art.content.includes('```')) {
-                // count occurrences of ```
                 const matches = art.content.match(/```[a-z]*/gi);
                 if (matches) codeCount += Math.floor(matches.length / 2);
             }
@@ -231,7 +335,118 @@ const HubStore = (() => {
         };
     }
 
-    /* ---- GitHub Integration (Option 3) ---- */
+    /* ---- Cloud Sync with Firebase Firestore ---- */
+    async function syncFromFirebase() {
+        const db = getFirebaseDb();
+        if (!db) return false;
+
+        try {
+            // Fetch topics from Firestore
+            const topicsSnap = await db.collection('topics').get();
+            const remoteTopics = [];
+            topicsSnap.forEach(doc => {
+                const data = doc.data();
+                if (data && data.name) remoteTopics.push(data);
+            });
+
+            // Fetch articles from Firestore
+            const articlesSnap = await db.collection('articles').get();
+            const remoteArticles = [];
+            articlesSnap.forEach(doc => {
+                const data = doc.data();
+                if (data && data.title) remoteArticles.push(data);
+            });
+
+            // If remote has data, update local cache
+            if (remoteTopics.length > 0 || remoteArticles.length > 0) {
+                if (remoteTopics.length > 0) {
+                    localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(remoteTopics));
+                }
+                if (remoteArticles.length > 0) {
+                    remoteArticles.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                    localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(remoteArticles));
+                }
+
+                // Notify UI to re-render
+                window.dispatchEvent(new CustomEvent('hub:synced', {
+                    detail: {
+                        topicsCount: remoteTopics.length,
+                        articlesCount: remoteArticles.length
+                    }
+                }));
+            }
+
+            // Start real-time listener if not active
+            setupRealtimeSync(db);
+
+            return {
+                topicsCount: remoteTopics.length,
+                articlesCount: remoteArticles.length
+            };
+        } catch (err) {
+            console.error('Firebase sync failed:', err);
+            return false;
+        }
+    }
+
+    function setupRealtimeSync(db) {
+        if (realtimeActive || !db) return;
+        realtimeActive = true;
+
+        try {
+            db.collection('topics').onSnapshot(snap => {
+                const list = [];
+                snap.forEach(d => list.push(d.data()));
+                if (list.length > 0) {
+                    localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(list));
+                    window.dispatchEvent(new CustomEvent('hub:synced'));
+                }
+            }, err => console.warn('Topics listener warning:', err));
+
+            db.collection('articles').onSnapshot(snap => {
+                const list = [];
+                snap.forEach(d => list.push(d.data()));
+                if (list.length > 0) {
+                    list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                    localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(list));
+                    window.dispatchEvent(new CustomEvent('hub:synced'));
+                }
+            }, err => console.warn('Articles listener warning:', err));
+        } catch (e) {
+            console.warn('Realtime sync setup error:', e);
+        }
+    }
+
+    /* ---- Migrate Local Data up to Firebase ---- */
+    async function uploadLocalDataToFirebase() {
+        const db = getFirebaseDb();
+        if (!db) throw new Error('Firebase is not configured or connected yet.');
+
+        const topics = getTopics();
+        const articles = getArticles();
+
+        let uploadedTopics = 0;
+        let uploadedArticles = 0;
+
+        // Batch upload topics
+        for (const t of topics) {
+            await db.collection('topics').doc(t.id).set(t);
+            uploadedTopics++;
+        }
+
+        // Batch upload articles
+        for (const a of articles) {
+            await db.collection('articles').doc(a.id).set(a);
+            uploadedArticles++;
+        }
+
+        return {
+            topicsCount: uploadedTopics,
+            articlesCount: uploadedArticles
+        };
+    }
+
+    /* ---- GitHub Integration ---- */
     function getGitHubConfig() {
         try {
             const raw = localStorage.getItem(STORAGE_KEY_GITHUB);
@@ -251,10 +466,6 @@ const HubStore = (() => {
         localStorage.setItem(STORAGE_KEY_GITHUB, JSON.stringify(cfg));
     }
 
-    /**
-     * Publish an article to GitHub via REST API
-     * Creates or updates a Markdown file in the user's repository with YAML frontmatter
-     */
     async function publishToGitHub(article) {
         const config = getGitHubConfig();
         if (!config.owner || !config.repo || !config.token) {
@@ -265,7 +476,6 @@ const HubStore = (() => {
         const folder = (config.folder || 'notes').replace(/^\/+|\/+$/g, '');
         const filePath = folder ? `${folder}/${fileName}` : fileName;
 
-        // Construct Markdown with YAML Frontmatter
         const frontmatter = [
             '---',
             `title: "${article.title.replace(/"/g, '\\"')}"`,
@@ -279,7 +489,6 @@ const HubStore = (() => {
             article.content
         ].filter(Boolean).join('\n');
 
-        // Convert content to Base64 (handling UTF-8)
         const utf8Bytes = new TextEncoder().encode(frontmatter);
         let binaryStr = '';
         utf8Bytes.forEach(b => binaryStr += String.fromCharCode(b));
@@ -287,7 +496,6 @@ const HubStore = (() => {
 
         const apiUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${filePath}`;
 
-        // Check if file already exists to get its SHA for update
         let sha = null;
         try {
             const checkRes = await fetch(apiUrl, {
@@ -300,9 +508,7 @@ const HubStore = (() => {
                 const checkData = await checkRes.json();
                 sha = checkData.sha;
             }
-        } catch (e) {
-            // Ignore 404
-        }
+        } catch (e) {}
 
         const commitPayload = {
             message: `Publish research note: ${article.title}`,
@@ -336,9 +542,6 @@ const HubStore = (() => {
         };
     }
 
-    /**
-     * Download article as .md file directly to user's computer
-     */
     function downloadMarkdown(article) {
         const frontmatter = [
             '---',
@@ -372,7 +575,7 @@ const HubStore = (() => {
             articles: getArticles(),
             githubConfig: {
                 ...getGitHubConfig(),
-                token: '' // don't export sensitive token
+                token: ''
             }
         };
 
@@ -410,25 +613,19 @@ const HubStore = (() => {
         }
     }
 
-    /* ---- Markdown to HTML parser (Safe & Lightweight with KaTeX / Prism preserved) ---- */
+    /* ---- Markdown to HTML parser ---- */
     function renderMarkdown(rawMd) {
         if (!rawMd) return '';
 
-        // If marked.js is available on window, use it
         if (typeof window.marked !== 'undefined' && typeof window.marked.parse === 'function') {
             return window.marked.parse(rawMd);
         }
 
-        // Robust fallback markdown parser
-        let html = rawMd;
-
-        // Escape raw HTML tags for safety
-        html = html
+        let html = rawMd
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
 
-        // Preserve Code blocks ```lang ... ```
         const codeBlocks = [];
         html = html.replace(/```([a-zA-Z0-9_\-\+]*)\n([\s\S]*?)```/g, (match, lang, code) => {
             const id = `__CODE_BLOCK_${codeBlocks.length}__`;
@@ -436,7 +633,6 @@ const HubStore = (() => {
             return id;
         });
 
-        // Preserve Math Display: $$ ... $$
         const mathBlocks = [];
         html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
             const id = `__MATH_BLOCK_${mathBlocks.length}__`;
@@ -444,7 +640,6 @@ const HubStore = (() => {
             return id;
         });
 
-        // Preserve Math Inline: $ ... $
         const mathInlines = [];
         html = html.replace(/\$([^\$\n]+?)\$/g, (match, formula) => {
             const id = `__MATH_INLINE_${mathInlines.length}__`;
@@ -452,52 +647,28 @@ const HubStore = (() => {
             return id;
         });
 
-        // Headers
-        html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-        html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-        html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+        html = html
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+            .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+            .replace(/`([^`]+)`/gim, '<code>$1</code>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+            .replace(/\n\n+/g, '</p><p>')
+            .replace(/\n/g, '<br>');
 
-        // Blockquotes & Callouts
-        html = html.replace(/^>\s*\[!NOTE\]\s*(.*$)/gim, '<div class="callout callout-note"><strong>Note:</strong> $1</div>');
-        html = html.replace(/^>\s*\[!KEY INSIGHT\]\s*(.*$)/gim, '<div class="callout callout-insight"><strong>Key Insight:</strong> $1</div>');
-        html = html.replace(/^>\s*\[!WARNING\]\s*(.*$)/gim, '<div class="callout callout-warning"><strong>Warning:</strong> $1</div>');
-        html = html.replace(/^>\s*(.*$)/gim, '<blockquote>$1</blockquote>');
+        html = `<p>${html}</p>`;
 
-        // Bold & Italic
-        html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        html = html.replace(/~~(.*?)~~/g, '<del>$1</del>');
-
-        // Inline Code
-        html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-
-        // Lists
-        html = html.replace(/^\s*\*\s+(.*$)/gim, '<li>$1</li>');
-        html = html.replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
-        html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
-
-        // Paragraphs
-        html = html.split(/\n\s*\n/).map(para => {
-            para = para.trim();
-            if (!para) return '';
-            if (para.startsWith('<h') || para.startsWith('<ul') || para.startsWith('<div') || para.startsWith('<blockquote') || para.startsWith('__CODE_BLOCK_') || para.startsWith('__MATH_BLOCK_')) {
-                return para;
-            }
-            return `<p>${para.replace(/\n/g, '<br>')}</p>`;
-        }).join('\n');
-
-        // Restore Math Inline
-        mathInlines.forEach((formula, i) => {
-            html = html.replace(`__MATH_INLINE_${i}__`, `$${formula}$`);
-        });
-
-        // Restore Math Blocks
         mathBlocks.forEach((formula, i) => {
-            html = html.replace(`__MATH_BLOCK_${i}__`, `<div class="math-block">$$${formula}$$</div>`);
+            html = html.replace(`__MATH_BLOCK_${i}__`, `<div class="katex-display-wrapper">$$${formula}$$</div>`);
         });
 
-        // Restore Code Blocks
+        mathInlines.forEach((formula, i) => {
+            html = html.replace(`__MATH_INLINE_${i}__`, `<span class="katex-inline-wrapper">$${formula}$</span>`);
+        });
+
         codeBlocks.forEach((item, i) => {
             const wrapper = `
                 <div class="code-block-wrapper">
@@ -514,6 +685,11 @@ const HubStore = (() => {
         return html;
     }
 
+    // Attempt Firebase sync in background immediately upon script execution
+    setTimeout(() => {
+        syncFromFirebase();
+    }, 100);
+
     return {
         getTopics,
         getTopic,
@@ -524,6 +700,9 @@ const HubStore = (() => {
         saveArticle,
         deleteArticle,
         getStats,
+        isFirebaseConnected,
+        syncFromFirebase,
+        uploadLocalDataToFirebase,
         getGitHubConfig,
         saveGitHubConfig,
         publishToGitHub,
