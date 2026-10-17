@@ -271,6 +271,10 @@ const HubStore = (() => {
                 await db.collection('articles').doc(articleRecord.id).set(articleRecord);
             } catch (err) {
                 console.error('Failed to save article to Firebase:', err);
+                if (err.code === 'permission-denied') {
+                    throw new Error('Firebase Permission Denied! Please check your Firestore Rules in Firebase Console.');
+                }
+                throw err;
             }
         }
 
@@ -335,6 +339,37 @@ const HubStore = (() => {
         };
     }
 
+    /* ---- Helper: Smart merge to prevent local data loss ---- */
+    function mergeTopics(remoteList) {
+        const local = getTopics();
+        const map = new Map();
+        local.forEach(t => map.set(t.id, t));
+        remoteList.forEach(r => {
+            const existing = map.get(r.id);
+            if (!existing || (r.updatedAt || 0) >= (existing.updatedAt || 0)) {
+                map.set(r.id, r);
+            }
+        });
+        const merged = Array.from(map.values());
+        localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(merged));
+        return merged;
+    }
+
+    function mergeArticles(remoteList) {
+        const local = getArticles();
+        const map = new Map();
+        local.forEach(a => map.set(a.id, a));
+        remoteList.forEach(r => {
+            const existing = map.get(r.id);
+            if (!existing || (r.updatedAt || 0) >= (existing.updatedAt || 0)) {
+                map.set(r.id, r);
+            }
+        });
+        const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(merged));
+        return merged;
+    }
+
     /* ---- Cloud Sync with Firebase Firestore ---- */
     async function syncFromFirebase() {
         const db = getFirebaseDb();
@@ -357,17 +392,14 @@ const HubStore = (() => {
                 if (data && data.title) remoteArticles.push(data);
             });
 
-            // If remote has data, update local cache
-            if (remoteTopics.length > 0 || remoteArticles.length > 0) {
-                if (remoteTopics.length > 0) {
-                    localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(remoteTopics));
-                }
-                if (remoteArticles.length > 0) {
-                    remoteArticles.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                    localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(remoteArticles));
-                }
+            if (remoteTopics.length > 0) {
+                mergeTopics(remoteTopics);
+            }
+            if (remoteArticles.length > 0) {
+                mergeArticles(remoteArticles);
+            }
 
-                // Notify UI to re-render
+            if (remoteTopics.length > 0 || remoteArticles.length > 0) {
                 window.dispatchEvent(new CustomEvent('hub:synced', {
                     detail: {
                         topicsCount: remoteTopics.length,
@@ -398,7 +430,7 @@ const HubStore = (() => {
                 const list = [];
                 snap.forEach(d => list.push(d.data()));
                 if (list.length > 0) {
-                    localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(list));
+                    mergeTopics(list);
                     window.dispatchEvent(new CustomEvent('hub:synced'));
                 }
             }, err => console.warn('Topics listener warning:', err));
@@ -407,8 +439,7 @@ const HubStore = (() => {
                 const list = [];
                 snap.forEach(d => list.push(d.data()));
                 if (list.length > 0) {
-                    list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                    localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(list));
+                    mergeArticles(list);
                     window.dispatchEvent(new CustomEvent('hub:synced'));
                 }
             }, err => console.warn('Articles listener warning:', err));

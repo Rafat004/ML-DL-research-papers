@@ -130,6 +130,11 @@ const FirebaseConfig = (() => {
                 return () => {};
             }
             return a.onAuthStateChanged(callback);
+        },
+
+        getCurrentUser: () => {
+            const a = auth || (init() ? auth : null);
+            return a ? a.currentUser : null;
         }
     };
 })();

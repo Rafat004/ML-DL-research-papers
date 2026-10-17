@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBackupHandlers();
     initHomeTopicModal();
     initCloudSyncModal();
+    initAuthWidget();
     initKaTeX();
 });
 
@@ -638,3 +639,72 @@ function parseFirebaseConfigString(str) {
         appId: extract('appId')
     };
 }
+
+/* ============================================================
+   Firebase Owner Authentication Widget
+   ============================================================ */
+function initAuthWidget() {
+    const btnAuth = document.getElementById('btn-auth-action');
+    const authText = document.getElementById('auth-btn-text');
+    const popover = document.getElementById('auth-popover');
+    const userEmailEl = document.getElementById('auth-user-email');
+    const btnSignOut = document.getElementById('btn-sign-out');
+
+    if (!btnAuth) return;
+
+    if (typeof FirebaseConfig === 'undefined' || !FirebaseConfig.isConfigured()) {
+        btnAuth.style.display = 'none';
+        return;
+    }
+
+    FirebaseConfig.onAuthStateChanged(user => {
+        if (user) {
+            btnAuth.classList.add('signed-in');
+            const displayName = user.displayName ? user.displayName.split(' ')[0] : 'Owner';
+            if (authText) authText.textContent = `👤 ${displayName}`;
+            if (userEmailEl) userEmailEl.textContent = user.email || 'Owner';
+        } else {
+            btnAuth.classList.remove('signed-in');
+            if (authText) authText.textContent = 'Owner Login';
+            if (userEmailEl) userEmailEl.textContent = 'Not signed in';
+            popover?.classList.remove('active');
+        }
+    });
+
+    btnAuth.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const user = FirebaseConfig.getCurrentUser();
+        if (user) {
+            popover?.classList.toggle('active');
+        } else {
+            try {
+                btnAuth.disabled = true;
+                if (authText) authText.textContent = 'Signing in...';
+                const result = await FirebaseConfig.signInWithGoogle();
+                alert(`Welcome, ${result.user.displayName || result.user.email}! You are now signed in with Owner permissions.`);
+            } catch (err) {
+                console.error('Google sign in error:', err);
+                if (err.code === 'auth/unauthorized-domain') {
+                    alert('Firebase Auth Error: Please add "rafat004.github.io" to "Authorized Domains" in Firebase Console (Authentication > Settings > Authorized domains).');
+                } else if (err.code !== 'auth/popup-closed-by-user') {
+                    alert(`Sign in error: ${err.message}`);
+                }
+            } finally {
+                btnAuth.disabled = false;
+            }
+        }
+    });
+
+    btnSignOut?.addEventListener('click', async () => {
+        await FirebaseConfig.signOut();
+        popover?.classList.remove('active');
+        alert('Signed out successfully.');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (popover && !popover.contains(e.target) && e.target !== btnAuth) {
+            popover.classList.remove('active');
+        }
+    });
+}
+

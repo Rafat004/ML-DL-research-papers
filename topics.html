@@ -22,6 +22,21 @@
                 <a href="topics.html" class="nav-link active">Topics</a>
             </nav>
             <div class="header-actions">
+                <!-- OWNER AUTH WIDGET -->
+                <div class="auth-widget" id="auth-widget">
+                    <button type="button" class="btn-auth" id="btn-auth-action" title="Sign in as Owner">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        <span id="auth-btn-text">Owner Login</span>
+                    </button>
+                    <div class="auth-popover" id="auth-popover">
+                        <div class="auth-popover-email" id="auth-user-email">Not signed in</div>
+                        <button type="button" class="auth-popover-btn" id="btn-sign-out">Sign out</button>
+                    </div>
+                </div>
+
                 <a href="editor.html" class="btn btn-create">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     <span>New Note</span>

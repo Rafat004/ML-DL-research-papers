@@ -504,6 +504,22 @@ if __name__ == "__main__":
         const data = getFormData();
         if (!data) return;
 
+        // If Firebase is configured and user is not logged in, prompt sign-in
+        if (typeof FirebaseConfig !== 'undefined' && FirebaseConfig.isConfigured()) {
+            const user = FirebaseConfig.getCurrentUser();
+            if (!user) {
+                const wantLogin = confirm('You are not signed in as Owner yet.\n\nSign in with Google now so Firebase Cloud allows saving?');
+                if (wantLogin) {
+                    try {
+                        await FirebaseConfig.signInWithGoogle();
+                    } catch (authErr) {
+                        showToast(`Google Sign-in failed: ${authErr.message}`, 'error');
+                        return;
+                    }
+                }
+            }
+        }
+
         try {
             markClean('Saving...');
             const saved = await HubStore.saveArticle(data);
@@ -530,8 +546,8 @@ if __name__ == "__main__":
         showToast('Downloaded .md file to your computer', 'success');
     });
 
-    /* ---- Publish to GitHub (Option 3) ---- */
-    btnPublishGithub.addEventListener('click', async () => {
+    /* ---- Publish to GitHub (Optional) ---- */
+    btnPublishGithub?.addEventListener('click', async () => {
         const data = getFormData();
         if (!data) return;
 
@@ -634,8 +650,8 @@ if __name__ == "__main__":
         modalGh.classList.add('active');
     }
 
-    btnGhSettings.addEventListener('click', openGhModal);
-    btnCloseGhModal.addEventListener('click', () => modalGh.classList.remove('active'));
+    btnGhSettings?.addEventListener('click', openGhModal);
+    btnCloseGhModal?.addEventListener('click', () => modalGh?.classList.remove('active'));
 
     btnSaveGhSettings.addEventListener('click', () => {
         const owner = document.getElementById('gh-owner').value.trim();
@@ -688,6 +704,43 @@ if __name__ == "__main__":
             resultDiv.textContent = `Network error: ${e.message}`;
         }
     });
+
+    /* ---- Editor Owner Auth Button ---- */
+    const btnEditorAuth = document.getElementById('btn-editor-auth');
+    const editorAuthText = document.getElementById('editor-auth-text');
+    if (typeof FirebaseConfig !== 'undefined' && FirebaseConfig.isConfigured()) {
+        FirebaseConfig.onAuthStateChanged(user => {
+            if (user) {
+                btnEditorAuth?.classList.add('signed-in');
+                const name = user.displayName ? user.displayName.split(' ')[0] : 'Owner';
+                if (editorAuthText) editorAuthText.textContent = `👤 ${name}`;
+            } else {
+                btnEditorAuth?.classList.remove('signed-in');
+                if (editorAuthText) editorAuthText.textContent = 'Owner Login';
+            }
+        });
+
+        btnEditorAuth?.addEventListener('click', async () => {
+            const user = FirebaseConfig.getCurrentUser();
+            if (user) {
+                if (confirm(`Signed in as: ${user.email}\n\nDo you want to sign out?`)) {
+                    await FirebaseConfig.signOut();
+                    showToast('Signed out', 'info');
+                }
+            } else {
+                try {
+                    await FirebaseConfig.signInWithGoogle();
+                    showToast('Signed in successfully!', 'success');
+                } catch (err) {
+                    if (err.code === 'auth/unauthorized-domain') {
+                        alert('Firebase Auth Error: Please add your domain (e.g. rafat004.github.io) to "Authorized Domains" in Firebase Console (Authentication > Settings > Authorized domains).');
+                    } else if (err.code !== 'auth/popup-closed-by-user') {
+                        showToast(`Login error: ${err.message}`, 'error');
+                    }
+                }
+            }
+        });
+    }
 }
 
 /* ---- Toast Notification Utility ---- */

@@ -3016,3 +3016,85 @@ img {
     color: var(--color-text);
 }
 
+/* ============================================================
+   Firebase Owner Auth Controls
+   ============================================================ */
+.auth-widget {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-auth {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.38rem 0.75rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-auth:hover {
+    border-color: var(--color-accent);
+    background: var(--color-bg-alt);
+}
+
+.btn-auth.signed-in {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.user-avatar-img {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.auth-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    padding: 0.75rem 1rem;
+    min-width: 220px;
+    z-index: 1000;
+    display: none;
+}
+
+.auth-popover.active {
+    display: block;
+}
+
+.auth-popover-email {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    word-break: break-all;
+    margin-bottom: 0.5rem;
+}
+
+.auth-popover-btn {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+    color: #ef4444;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: center;
+}
+
+.auth-popover-btn:hover {
+    background: rgba(239, 68, 68, 0.08);
+}
+
