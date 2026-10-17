@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Note Editor — DL Knowledge Hub</title>
+    <meta name="description" content="Add your custom deep learning topics, mathematical derivations, architecture diagrams, and code implementations.">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for math formula rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Prism.js for code highlighting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+</head>
+<body class="editor-page-body">
+
+    <!-- ========== EDITOR TOP NAVIGATION BAR ========== -->
+    <header class="editor-topbar" id="editor-topbar">
+        <div class="editor-topbar-left">
+            <a href="index.html" class="editor-back-btn" title="Back to Home">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                <span>Back to Hub</span>
+            </a>
+            <div class="editor-status-badge" id="editor-status-badge">
+                <span class="status-dot"></span>
+                <span class="status-text" id="status-text">Draft</span>
+            </div>
+        </div>
+
+        <div class="editor-topbar-center">
+            <span class="editor-doc-title" id="editor-doc-title">New Research Note</span>
+        </div>
+
+        <div class="editor-topbar-actions">
+            <button type="button" class="btn btn-sm btn-ghost" id="btn-gh-settings" title="Configure GitHub Sync (Option 3)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span>GitHub Sync</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" id="btn-download-md" title="Download as .md file">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                <span>Download .md</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" id="btn-save-local">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span>Save Note</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-github" id="btn-publish-github" title="Push note to GitHub repository">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                <span>Publish to GitHub</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ========== MAIN EDITOR CONTAINER ========== -->
+    <main class="editor-main-container">
+        
+        <!-- Meta Details Form -->
+        <section class="editor-meta-card">
+            <!-- Title -->
+            <div class="form-group title-group">
+                <input type="text" id="article-title" class="input-title" placeholder="Title of your research note..." autocomplete="off">
+            </div>
+
+            <div class="meta-row">
+                <!-- Topic Selection -->
+                <div class="form-group flex-1">
+                    <label for="topic-select" class="form-label">
+                        <span>Topic / Category</span>
+                        <button type="button" class="btn-text-action" id="btn-open-topic-modal">+ Create New Topic</button>
+                    </label>
+                    <div class="select-wrapper">
+                        <select id="topic-select" class="form-select">
+                            <option value="">-- Choose or create a topic --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                <div class="form-group flex-1">
+                    <label for="article-tags" class="form-label">Tags (comma-separated)</label>
+                    <input type="text" id="article-tags" class="form-input" placeholder="e.g. pytorch, attention, math, backprop">
+                </div>
+
+                <!-- Date -->
+                <div class="form-group w-auto">
+                    <label for="article-date" class="form-label">Date</label>
+                    <input type="date" id="article-date" class="form-input">
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="form-group">
+                <label for="article-excerpt" class="form-label">Description</label>
+                <textarea id="article-excerpt" class="form-input form-textarea-sm" placeholder="A concise description of what this note covers..." rows="2"></textarea>
+            </div>
+
+            <!-- Architecture Diagram / Asset Uploader -->
+            <div class="diagram-upload-section">
+                <div class="diagram-section-header">
+                    <div class="diagram-section-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                        <span>Architecture Diagram or Visual Asset (Optional)</span>
+                    </div>
+                    <span class="diagram-section-hint">Drag & drop or paste image URL</span>
+                </div>
+
+                <div class="diagram-input-row">
+                    <div class="file-drop-area" id="file-drop-area">
+                        <input type="file" id="diagram-file-input" accept="image/*" class="file-input-hidden">
+                        <div class="drop-prompt">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                            <span>Choose architecture image or drop here</span>
+                        </div>
+                    </div>
+                    <div class="url-input-area">
+                        <input type="url" id="diagram-url-input" class="form-input" placeholder="Or paste image URL (e.g. https://.../diagram.png)">
+                        <input type="text" id="diagram-caption-input" class="form-input" placeholder="Figure Caption: e.g. Figure 1: Self-Attention Block architecture">
+                    </div>
+                </div>
+
+                <!-- Diagram Preview Box -->
+                <div class="diagram-preview-card" id="diagram-preview-card" style="display: none;">
+                    <div class="diagram-preview-img-wrapper">
+                        <img id="diagram-preview-img" src="" alt="Architecture diagram preview">
+                    </div>
+                    <div class="diagram-preview-meta">
+                        <span id="diagram-preview-caption">Figure 1: Architecture diagram</span>
+                        <button type="button" class="btn-remove-diagram" id="btn-remove-diagram" title="Remove image">Remove Image ✕</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Markdown Toolbar -->
+        <div class="editor-toolbar-container">
+            <div class="toolbar-tools">
+                <button type="button" class="tool-btn" data-tool="h2" title="Heading 2">H2</button>
+                <button type="button" class="tool-btn" data-tool="h3" title="Heading 3">H3</button>
+                <div class="tool-divider"></div>
+                <button type="button" class="tool-btn" data-tool="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+                <button type="button" class="tool-btn" data-tool="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+                <button type="button" class="tool-btn" data-tool="inline-code" title="Inline Code">`code`</button>
+                <div class="tool-divider"></div>
+                <button type="button" class="tool-btn" data-tool="math-inline" title="Inline LaTeX ($x$)">$x$</button>
+                <button type="button" class="tool-btn" data-tool="math-block" title="Block LaTeX ($$...$$)">$$\sum$$</button>
+                <button type="button" class="tool-btn" data-tool="code-block" title="Code Block (PyTorch / Python)">{ code }</button>
+                <div class="tool-divider"></div>
+                <button type="button" class="tool-btn" data-tool="quote" title="Quote / Callout">&gt;</button>
+                <button type="button" class="tool-btn" data-tool="ul" title="Bulleted List">• List</button>
+                <button type="button" class="tool-btn" data-tool="ol" title="Numbered List">1. List</button>
+                <div class="tool-divider"></div>
+                <button type="button" class="tool-btn btn-template" id="btn-insert-template" title="Insert a full structured deep learning note template">
+                    <span>✨ Insert DL Template</span>
+                </button>
+            </div>
+
+            <div class="toolbar-view-toggle">
+                <button type="button" class="view-btn active" data-view="split">Split View</button>
+                <button type="button" class="view-btn" data-view="edit">Write Only</button>
+                <button type="button" class="view-btn" data-view="preview">Preview Only</button>
+            </div>
+        </div>
+
+        <!-- Editor & Preview Workspace -->
+        <div class="editor-workspace split-view" id="editor-workspace">
+            <!-- Left: Raw Markdown Editor -->
+            <div class="editor-pane" id="editor-pane">
+                <textarea id="markdown-input" class="markdown-textarea" placeholder="Start writing your research note here in Markdown...
+
+Supports:
+- Math formulas: $W \cdot x + b$ or $$\frac{\partial L}{\partial w}$$
+- Code blocks: ```python ... ```
+- Callout boxes: > [!NOTE] or > [!KEY INSIGHT]
+- Bullet lists, headings, and bold text"></textarea>
+            </div>
+
+            <!-- Right: Real-Time KaTeX & Prism Preview -->
+            <div class="preview-pane" id="preview-pane">
+                <div class="preview-header">
+                    <span>Live Document Preview</span>
+                    <span class="preview-badge">KaTeX & Prism.js</span>
+                </div>
+                <article class="article-body preview-content" id="preview-content">
+                    <p class="preview-placeholder">Live preview will render here as you type...</p>
+                </article>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========== CREATE NEW TOPIC MODAL ========== -->
+    <div class="modal-overlay" id="modal-new-topic">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Create New Topic</h3>
+                <button type="button" class="modal-close" id="btn-close-topic-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="new-topic-name">Topic Name *</label>
+                    <input type="text" id="new-topic-name" class="form-input" placeholder="e.g. Transformers & Attention, Diffusion Models, Reinforcement Learning">
+                </div>
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label class="form-label" for="new-topic-icon">Icon / Emoji</label>
+                        <input type="text" id="new-topic-icon" class="form-input" value="🧠" placeholder="e.g. ⚡, 🧠, 👁️, 🧮, 🎨, 🚀">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label class="form-label" for="new-topic-tag">Category Tag</label>
+                        <input type="text" id="new-topic-tag" class="form-input" placeholder="e.g. NLP, Computer Vision, Generative AI">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="new-topic-desc">Description</label>
+                    <textarea id="new-topic-desc" class="form-input form-textarea-sm" placeholder="What does this topic cover?" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-topic-modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn-save-new-topic">Create Topic</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== GITHUB SETTINGS MODAL (OPTION 3) ========== -->
+    <div class="modal-overlay" id="modal-github-settings">
+        <div class="modal-card modal-card-lg">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    <h3>GitHub Publishing Settings (Option 3)</h3>
+                </div>
+                <button type="button" class="modal-close" id="btn-close-gh-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-intro">
+                    Configure your GitHub repository to publish notes directly to the cloud. When you click <strong>Publish to GitHub</strong>, notes are committed straight to your repo as Markdown files!
+                </p>
+
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label class="form-label" for="gh-owner">GitHub Username or Org *</label>
+                        <input type="text" id="gh-owner" class="form-input" placeholder="e.g. your-github-username">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label class="form-label" for="gh-repo">Repository Name *</label>
+                        <input type="text" id="gh-repo" class="form-input" placeholder="e.g. ml-dl-research">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label class="form-label" for="gh-branch">Branch</label>
+                        <input type="text" id="gh-branch" class="form-input" value="main">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label class="form-label" for="gh-folder">Folder in Repo</label>
+                        <input type="text" id="gh-folder" class="form-input" value="notes" placeholder="e.g. notes or content">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="gh-token">
+                        <span>Personal Access Token (PAT) *</span>
+                        <a href="https://github.com/settings/tokens" target="_blank" rel="noopener" class="form-link">Create token on GitHub ↗</a>
+                    </label>
+                    <input type="password" id="gh-token" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                    <span class="form-help">Token only needs <code>repo</code> or <code>contents:write</code> scope. Stored securely only in your browser's local storage.</span>
+                </div>
+
+                <div id="gh-test-result" class="gh-test-result" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-test-gh-connection">Test Connection</button>
+                <button type="button" class="btn btn-primary" id="btn-save-gh-settings">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="js/hub-store.js"></script>
+    <script src="js/editor.js"></script>
+</body>
+</html>

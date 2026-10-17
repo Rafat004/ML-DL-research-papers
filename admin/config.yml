@@ -1,0 +1,23 @@
+backend:
+  name: github
+  repo: username/dl-knowledge-hub # Update with your GitHub repo (e.g. user/my-hub)
+  branch: main
+
+media_folder: "assets/diagrams"
+public_folder: "assets/diagrams"
+
+collections:
+  - name: "notes"
+    label: "Research Notes"
+    folder: "notes"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    fields:
+      - { label: "Title", name: "title", widget: "string" }
+      - { label: "Publish Date", name: "date", widget: "date", default: "{{now}}" }
+      - { label: "Topic Category", name: "topic", widget: "string" }
+      - { label: "Tags", name: "tags", widget: "list", default: ["math", "pytorch"] }
+      - { label: "Short Excerpt", name: "excerpt", widget: "text", required: false }
+      - { label: "Architecture Diagram", name: "diagram", widget: "image", required: false }
+      - { label: "Diagram Caption", name: "diagram_caption", widget: "string", required: false }
+      - { label: "Content Body", name: "body", widget: "markdown" }

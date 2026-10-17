@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Note — Deep Learning Knowledge Hub</title>
+    <meta name="description" content="Deep learning research note, mathematical formulations, architecture diagrams, and code implementation.">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for math formula rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Prism.js for code highlighting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+</head>
+<body>
+
+    <!-- ========== HEADER ========== -->
+    <header class="site-header" id="site-header">
+        <div class="header-inner">
+            <a href="index.html" class="logo" id="logo">
+                <span class="logo-icon">◈</span>
+                <span class="logo-text">DL Knowledge Hub</span>
+            </a>
+            <nav class="main-nav" id="main-nav">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="topics.html" class="nav-link">Topics</a>
+                <a href="about.html" class="nav-link">About</a>
+            </nav>
+            <div class="header-actions">
+                <a href="editor.html" class="btn btn-create" title="Create a new research note">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>New Note</span>
+                </a>
+                <div class="search-box" id="search-box">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="search-input" placeholder="Search notes, math, code..." autocomplete="off">
+                </div>
+                <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========== ARTICLE CONTAINER ========== -->
+    <div class="article-wrapper" id="article-wrapper">
+        <div class="article-layout">
+            
+            <!-- Main Content Column -->
+            <main class="article-main" id="article-main">
+                
+                <!-- Breadcrumbs & Actions -->
+                <div class="article-top-bar">
+                    <div class="breadcrumb" id="article-breadcrumb">
+                        <a href="index.html">Hub</a>
+                        <span class="sep">/</span>
+                        <a href="topics.html" id="breadcrumb-topic">Topic</a>
+                        <span class="sep">/</span>
+                        <span class="current" id="breadcrumb-title">Article</span>
+                    </div>
+
+                    <div class="article-actions-bar">
+                        <a href="#" class="btn btn-sm btn-secondary" id="btn-edit-article">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            <span>Edit Note</span>
+                        </a>
+                        <button type="button" class="btn btn-sm btn-ghost" id="btn-download-article-md" title="Download as .md file">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                            <span>.md</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger-ghost" id="btn-delete-article" title="Delete this note">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Article Header -->
+                <header class="article-header">
+                    <div class="article-topic-pill" id="article-topic-pill">Deep Learning</div>
+                    <h1 class="article-title" id="article-title">Loading note...</h1>
+                    
+                    <div class="article-meta">
+                        <div class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                            <span id="article-date">October 17, 2026</span>
+                        </div>
+                        <div class="meta-item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span id="article-read-time">5 min read</span>
+                        </div>
+                    </div>
+
+                    <div class="article-tags-list" id="article-tags-list"></div>
+
+                    <!-- Description -->
+                    <div class="article-abstract-card" id="article-abstract" style="display: none;">
+                        <div class="abstract-label">Description:</div>
+                        <p class="abstract-text" id="article-abstract-text"></p>
+                    </div>
+                </header>
+
+                <!-- Architecture Diagram Display Section -->
+                <section class="article-diagram-wrapper" id="article-diagram-wrapper" style="display: none;">
+                    <div class="diagram-display-card">
+                        <div class="diagram-tag">📐 Architecture Diagram</div>
+                        <div class="diagram-image-container">
+                            <img id="article-diagram-img" src="" alt="Architecture Diagram" class="diagram-zoomable">
+                        </div>
+                        <p class="diagram-caption" id="article-diagram-caption">Figure 1: Architecture diagram</p>
+                    </div>
+                </section>
+
+                <!-- Article Body (Rendered Markdown, KaTeX, Prism) -->
+                <article class="article-body" id="article-body">
+                    <p class="article-loading-text">Loading research content...</p>
+                </article>
+
+                <!-- Article Bottom Navigation -->
+                <div class="article-bottom-nav">
+                    <a href="index.html" class="btn btn-secondary">← Back to Hub</a>
+                    <a href="editor.html" class="btn btn-primary">+ Write Another Note</a>
+                </div>
+            </main>
+
+            <!-- Article Sidebar / Table of Contents -->
+            <aside class="article-sidebar" id="article-sidebar">
+                <div class="sidebar-widget">
+                    <h3 class="widget-title">Table of Contents</h3>
+                    <nav class="toc-nav" id="toc-nav">
+                        <p class="toc-empty">No headings in this note.</p>
+                    </nav>
+                </div>
+
+                <div class="sidebar-widget">
+                    <h3 class="widget-title">Note Actions</h3>
+                    <div class="sidebar-action-buttons">
+                        <button type="button" class="btn btn-sm btn-secondary w-full" id="btn-sidebar-edit">Edit This Note</button>
+                        <button type="button" class="btn btn-sm btn-secondary w-full" id="btn-sidebar-download">Download Markdown</button>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Image Lightbox Modal -->
+    <div class="lightbox-overlay" id="lightbox-overlay">
+        <span class="lightbox-close" id="lightbox-close">✕</span>
+        <img id="lightbox-img" src="" alt="Full view diagram">
+    </div>
+
+    <!-- Search Overlay -->
+    <div class="search-overlay" id="search-overlay">
+        <div class="search-overlay-inner">
+            <div class="search-overlay-header">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" id="search-overlay-input" placeholder="Search your topics and articles..." autofocus>
+                <button id="search-close" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results">
+                <p class="search-hint">Type to search notes and code...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <span class="logo-icon">◈</span>
+                    <span class="logo-text">DL Knowledge Hub</span>
+                    <p class="footer-tagline">Personal deep learning research notebook</p>
+                </div>
+                <div class="footer-actions">
+                    <a href="editor.html" class="btn btn-sm btn-primary">+ New Note</a>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="HubStore.exportBackup()">Backup JSON</button>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Deep Learning Knowledge Hub. Built for open research and learning.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/hub-store.js"></script>
+    <script src="js/article.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
