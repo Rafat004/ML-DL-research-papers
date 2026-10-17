@@ -145,7 +145,7 @@ function renderTopicsGrid() {
 
     // Attach card delete button handlers
     grid.querySelectorAll('.topic-card-delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
             const id = btn.getAttribute('data-topic-id');
@@ -153,9 +153,10 @@ function renderTopicsGrid() {
             const artCount = HubStore.getArticles(id).length;
             const noteMsg = artCount > 0 ? ` and all ${artCount} note(s) inside it` : '';
             if (confirm(`Are you sure you want to delete topic "${name}"${noteMsg}? This cannot be undone.`)) {
-                HubStore.deleteTopic(id);
+                await HubStore.deleteTopic(id);
                 alert(`Topic "${name}" deleted.`);
                 renderTopicsGrid();
+                renderRecentPosts();
                 renderStats();
             }
         });
@@ -552,6 +553,19 @@ function initCloudSyncModal() {
 
     btnUploadAll?.addEventListener('click', handleUploadLocal);
     btnBannerUpload?.addEventListener('click', handleUploadLocal);
+
+    // Clear Local Cache & Reset
+    const btnResetLocal = document.getElementById('btn-cloud-reset-local');
+    btnResetLocal?.addEventListener('click', async () => {
+        if (confirm('Clear local browser cache and re-sync with Firebase Cloud?')) {
+            HubStore.clearLocalCache();
+            if (HubStore.isFirebaseConnected()) {
+                await HubStore.syncFromFirebase();
+            }
+            initDynamicHub();
+            alert('Local browser cache cleared and refreshed.');
+        }
+    });
 
     // Disconnect
     btnDisconnect?.addEventListener('click', () => {

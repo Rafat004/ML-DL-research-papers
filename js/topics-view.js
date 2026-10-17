@@ -133,7 +133,7 @@ function renderAllTopics(container, pageTitle, pageDesc) {
 
     // Attach card delete button handlers
     container.querySelectorAll('.topic-card-delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
             const id = btn.getAttribute('data-topic-id');
@@ -141,7 +141,7 @@ function renderAllTopics(container, pageTitle, pageDesc) {
             const artCount = HubStore.getArticles(id).length;
             const noteMsg = artCount > 0 ? ` and all ${artCount} note(s) inside it` : '';
             if (confirm(`Are you sure you want to delete topic "${name}"${noteMsg}? This cannot be undone.`)) {
-                HubStore.deleteTopic(id);
+                await HubStore.deleteTopic(id);
                 alert(`Topic "${name}" deleted.`);
                 renderAllTopics(container, pageTitle, pageDesc);
             }
@@ -239,11 +239,11 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
     // Attach single topic delete action
     const btnDeleteTopic = document.getElementById('btn-delete-topic');
     if (btnDeleteTopic) {
-        btnDeleteTopic.addEventListener('click', () => {
+        btnDeleteTopic.addEventListener('click', async () => {
             const artCount = HubStore.getArticles(topic.id).length;
             const noteMsg = artCount > 0 ? ` and all ${artCount} note(s) inside it` : '';
             if (confirm(`Are you sure you want to delete topic "${topic.name}"${noteMsg}? This cannot be undone.`)) {
-                HubStore.deleteTopic(topic.id);
+                await HubStore.deleteTopic(topic.id);
                 alert(`Topic "${topic.name}" deleted.`);
                 window.location.href = 'topics.html';
             }

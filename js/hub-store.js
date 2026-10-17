@@ -116,12 +116,21 @@ const HubStore = (() => {
         const topic = getTopic(topicIdOrSlug);
         const targetId = topic ? topic.id : topicIdOrSlug;
         const targetSlug = topic ? topic.slug : topicIdOrSlug;
+        const targetName = topic ? topic.name : '';
 
         let topics = getTopics().filter(t => t.id !== targetId && t.slug !== targetSlug);
         localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(topics));
 
         // Also remove articles belonging to this topic locally
-        let articles = getArticles().filter(a => a.topicId !== targetId && a.topicSlug !== targetSlug);
+        let articles = getArticles().filter(a => 
+            a.topicId !== targetId && 
+            a.topicSlug !== targetSlug && 
+            (!targetName || a.topicName !== targetName)
+        );
+        // If no topics remain, clean any orphan articles
+        if (topics.length === 0) {
+            articles = [];
+        }
         localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(articles));
 
         // Delete from Firebase Firestore if connected
@@ -130,13 +139,25 @@ const HubStore = (() => {
             try {
                 await db.collection('topics').doc(targetId).delete();
 
-                // Delete matching articles from Firestore
+                // Delete matching articles from Firestore by topicId
                 const artsSnap = await db.collection('articles')
                     .where('topicId', '==', targetId)
                     .get();
                 const batch = db.batch();
                 artsSnap.forEach(doc => batch.delete(doc.ref));
                 await batch.commit();
+
+                // Also delete by topicSlug if any
+                if (targetSlug) {
+                    const slugSnap = await db.collection('articles')
+                        .where('topicSlug', '==', targetSlug)
+                        .get();
+                    if (!slugSnap.empty) {
+                        const batch2 = db.batch();
+                        slugSnap.forEach(doc => batch2.delete(doc.ref));
+                        await batch2.commit();
+                    }
+                }
             } catch (err) {
                 console.error('Failed to delete topic from Firebase:', err);
             }
@@ -150,6 +171,14 @@ const HubStore = (() => {
         try {
             const raw = localStorage.getItem(STORAGE_KEY_ARTICLES);
             let articles = raw ? JSON.parse(raw) : INITIAL_ARTICLES;
+
+            // Self-healing: if no topics exist, purge any stale orphan articles
+            const topicsRaw = localStorage.getItem(STORAGE_KEY_TOPICS);
+            const topics = topicsRaw ? JSON.parse(topicsRaw) : [];
+            if (topics.length === 0 && articles.length > 0) {
+                localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify([]));
+                return [];
+            }
 
             if (topicIdOrSlug) {
                 articles = articles.filter(a => a.topicId === topicIdOrSlug || a.topicSlug === topicIdOrSlug);
@@ -344,7 +373,7 @@ const HubStore = (() => {
         return {
             topicsCount: topics.length,
             articlesCount: articles.length,
-            codeCount: Math.max(codeCount, articles.length > 0 ? 1 : 0),
+            codeCount: codeCount,
             diagramsCount: diagramCount
         };
     }
@@ -380,6 +409,13 @@ const HubStore = (() => {
         return merged;
     }
 
+    /* ---- Local Cache Cleaner ---- */
+    function clearLocalCache() {
+        localStorage.removeItem(STORAGE_KEY_TOPICS);
+        localStorage.removeItem(STORAGE_KEY_ARTICLES);
+        window.dispatchEvent(new CustomEvent('hub:synced', { detail: { cleared: true } }));
+    }
+
     /* ---- Cloud Sync with Firebase Firestore ---- */
     async function syncFromFirebase() {
         const db = getFirebaseDb();
@@ -391,7 +427,7 @@ const HubStore = (() => {
             const remoteTopics = [];
             topicsSnap.forEach(doc => {
                 const data = doc.data();
-                if (data && data.name) remoteTopics.push(data);
+                if (data && (data.name || data.id)) remoteTopics.push(data);
             });
 
             // Fetch articles from Firestore
@@ -399,24 +435,19 @@ const HubStore = (() => {
             const remoteArticles = [];
             articlesSnap.forEach(doc => {
                 const data = doc.data();
-                if (data && data.title) remoteArticles.push(data);
+                if (data && (data.title || data.id)) remoteArticles.push(data);
             });
 
-            if (remoteTopics.length > 0) {
-                mergeTopics(remoteTopics);
-            }
-            if (remoteArticles.length > 0) {
-                mergeArticles(remoteArticles);
-            }
+            // Mirror authoritative cloud state into localStorage
+            localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(remoteTopics));
+            localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(remoteArticles));
 
-            if (remoteTopics.length > 0 || remoteArticles.length > 0) {
-                window.dispatchEvent(new CustomEvent('hub:synced', {
-                    detail: {
-                        topicsCount: remoteTopics.length,
-                        articlesCount: remoteArticles.length
-                    }
-                }));
-            }
+            window.dispatchEvent(new CustomEvent('hub:synced', {
+                detail: {
+                    topicsCount: remoteTopics.length,
+                    articlesCount: remoteArticles.length
+                }
+            }));
 
             // Start real-time listener if not active
             setupRealtimeSync(db);
@@ -438,20 +469,22 @@ const HubStore = (() => {
         try {
             db.collection('topics').onSnapshot(snap => {
                 const list = [];
-                snap.forEach(d => list.push(d.data()));
-                if (list.length > 0) {
-                    mergeTopics(list);
-                    window.dispatchEvent(new CustomEvent('hub:synced'));
-                }
+                snap.forEach(d => {
+                    const data = d.data();
+                    if (data && (data.name || data.id)) list.push(data);
+                });
+                localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(list));
+                window.dispatchEvent(new CustomEvent('hub:synced'));
             }, err => console.warn('Topics listener warning:', err));
 
             db.collection('articles').onSnapshot(snap => {
                 const list = [];
-                snap.forEach(d => list.push(d.data()));
-                if (list.length > 0) {
-                    mergeArticles(list);
-                    window.dispatchEvent(new CustomEvent('hub:synced'));
-                }
+                snap.forEach(d => {
+                    const data = d.data();
+                    if (data && (data.title || data.id)) list.push(data);
+                });
+                localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(list));
+                window.dispatchEvent(new CustomEvent('hub:synced'));
             }, err => console.warn('Articles listener warning:', err));
         } catch (e) {
             console.warn('Realtime sync setup error:', e);
@@ -744,6 +777,7 @@ const HubStore = (() => {
         isFirebaseConnected,
         syncFromFirebase,
         uploadLocalDataToFirebase,
+        clearLocalCache,
         getGitHubConfig,
         saveGitHubConfig,
         publishToGitHub,
