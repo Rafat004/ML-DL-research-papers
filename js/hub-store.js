@@ -316,17 +316,22 @@ const HubStore = (() => {
 
         localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(topics));
 
+        let cloudSaved = false;
+        let cloudError = null;
+
         // Save to Firebase Firestore if connected
         const db = getFirebaseDb();
         if (db) {
             try {
                 await db.collection('topics').doc(topicRecord.id).set(topicRecord);
+                cloudSaved = true;
             } catch (err) {
                 console.error('Failed to save topic to Firebase:', err);
+                cloudError = err.message;
             }
         }
 
-        return topicRecord;
+        return { ...topicRecord, cloudSaved, cloudError };
     }
 
     async function deleteTopic(topicIdOrSlug) {

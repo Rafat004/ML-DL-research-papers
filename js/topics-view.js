@@ -398,6 +398,23 @@ function setupTopicHtmlModal(topic) {
         previewContainer.style.display = 'none';
     });
 
+    const btnDownload = document.getElementById('btn-download-topic-html');
+    btnDownload?.addEventListener('click', () => {
+        const code = inputCode.value;
+        if (!code.trim()) {
+            alert('No HTML code to download yet. Please paste or write some HTML first.');
+            return;
+        }
+        const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${(topic.slug || 'roadmap')}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    });
+
     btnSave?.addEventListener('click', async () => {
         const code = inputCode.value.trim();
         const htmlTitle = inputTitle.value.trim() || `${topic.name} Interactive View`;
@@ -409,9 +426,9 @@ function setupTopicHtmlModal(topic) {
         }
 
         btnSave.disabled = true;
-        btnSave.textContent = 'Saving...';
+        btnSave.textContent = 'Saving to Cloud & Local...';
         try {
-            await HubStore.saveTopic({
+            const saved = await HubStore.saveTopic({
                 ...topic,
                 customHtml: code,
                 htmlTitle: htmlTitle,
@@ -419,6 +436,13 @@ function setupTopicHtmlModal(topic) {
             });
             closeModal();
             initTopicsView();
+            if (saved && saved.cloudSaved) {
+                alert(`✓ Saved permanently!\n\n• Synced to Firebase Cloud Firestore\n• Saved to browser LocalStorage\n\nYour interactive page will remain forever on any device connected to your Firebase project.`);
+            } else if (saved && saved.cloudError) {
+                alert(`Saved in local browser!\n\nNote: Firebase cloud sync warning: "${saved.cloudError}".\nIf you want cloud sync, please sign in via the Owner Login button at the top.`);
+            } else {
+                alert(`✓ Saved to browser LocalStorage!`);
+            }
         } catch (err) {
             alert(`Error saving HTML: ${err.message}`);
         } finally {
