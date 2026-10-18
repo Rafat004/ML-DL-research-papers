@@ -891,7 +891,7 @@ const HubStore = (() => {
         return getArticles(topicIdOrSlug);
     }
 
-    /* ---- Drag & Drop Note Cards Reordering (Slide style) ---- */
+    /* ---- Drag & Drop Note Cards Reordering (PowerPoint Slide style) ---- */
     let suppressNoteClick = false;
 
     function initArticleDragAndDrop(container, topicIdOrSlug = null, callback = null) {
@@ -899,6 +899,70 @@ const HubStore = (() => {
 
         let draggedCard = null;
         const cards = container.querySelectorAll('.post-card');
+
+        async function commitReorderedArticles(movedCard = null) {
+            const currentCards = container.querySelectorAll('.post-card');
+            const newOrderedIds = [];
+            let newMovedIndex = -1;
+            const targetCard = movedCard || currentCards[0];
+            const movedArticleId = targetCard ? targetCard.getAttribute('data-article-id') : null;
+            const movedArticleTitle = targetCard?.querySelector('.post-title')?.textContent?.trim() || 'Note';
+
+            currentCards.forEach((c, index) => {
+                const id = c.getAttribute('data-article-id');
+                if (id) newOrderedIds.push(id);
+                if (id === movedArticleId) {
+                    newMovedIndex = index;
+                }
+                const badgeEl = c.querySelector('.note-order-badge');
+                if (badgeEl) {
+                    const newNumStr = '#' + (index + 1).toString().padStart(2, '0');
+                    if (badgeEl.textContent !== newNumStr) {
+                        badgeEl.textContent = newNumStr;
+                        badgeEl.classList.remove('updated-pulse');
+                        void badgeEl.offsetWidth; // Trigger reflow for animation
+                        badgeEl.classList.add('updated-pulse');
+                    }
+                }
+            });
+
+            try {
+                await reorderArticles(newOrderedIds, topicIdOrSlug);
+                const serialStr = '#' + (newMovedIndex >= 0 ? newMovedIndex + 1 : 1).toString().padStart(2, '0');
+                showTopicReorderToast(`Moved "${movedArticleTitle}" to position ${serialStr}`);
+                if (typeof callback === 'function') {
+                    callback(newOrderedIds);
+                }
+            } catch (err) {
+                console.warn('Error saving article order:', err);
+            }
+        }
+
+        // Quick Move Up / Down Button Handlers
+        container.querySelectorAll('.btn-note-move').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const card = btn.closest('.post-card');
+                if (!card) return;
+
+                const action = btn.getAttribute('data-action');
+                if (action === 'up' && card.previousElementSibling) {
+                    container.insertBefore(card, card.previousElementSibling);
+                    await commitReorderedArticles(card);
+                } else if (action === 'down' && card.nextElementSibling) {
+                    container.insertBefore(card.nextElementSibling, card);
+                    await commitReorderedArticles(card);
+                }
+            });
+        });
+
+        // Allow dropping directly onto the container (e.g. at the bottom)
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        });
 
         cards.forEach(card => {
             card.setAttribute('draggable', 'true');
@@ -953,7 +1017,8 @@ const HubStore = (() => {
                     return;
                 }
 
-                const isBefore = card.classList.contains('drop-before-note');
+                const rect = card.getBoundingClientRect();
+                const isBefore = card.classList.contains('drop-before-note') || (e.clientY < (rect.top + rect.height / 2));
                 cleanupNoteDragStyles();
 
                 // Re-insert dragged note in DOM
@@ -963,42 +1028,7 @@ const HubStore = (() => {
                     container.insertBefore(draggedCard, card.nextSibling);
                 }
 
-                // Immediately re-serialize #01, #02, #03... badges on all note cards
-                const currentCards = container.querySelectorAll('.post-card');
-                const newOrderedIds = [];
-                let newMovedIndex = -1;
-                const movedArticleId = draggedCard.getAttribute('data-article-id');
-                const movedArticleTitle = draggedCard.querySelector('.post-title')?.textContent?.trim() || 'Note';
-
-                currentCards.forEach((c, index) => {
-                    const id = c.getAttribute('data-article-id');
-                    if (id) newOrderedIds.push(id);
-                    if (id === movedArticleId) {
-                        newMovedIndex = index;
-                    }
-                    const badgeEl = c.querySelector('.note-order-badge');
-                    if (badgeEl) {
-                        const newNumStr = '#' + (index + 1).toString().padStart(2, '0');
-                        if (badgeEl.textContent !== newNumStr) {
-                            badgeEl.textContent = newNumStr;
-                            badgeEl.classList.remove('updated-pulse');
-                            void badgeEl.offsetWidth; // Trigger reflow for animation
-                            badgeEl.classList.add('updated-pulse');
-                        }
-                    }
-                });
-
-                // Persist the new sequence in LocalStorage and Firebase Cloud
-                try {
-                    await reorderArticles(newOrderedIds, topicIdOrSlug);
-                    const serialStr = '#' + (newMovedIndex + 1).toString().padStart(2, '0');
-                    showTopicReorderToast(`Moved "${movedArticleTitle}" to position ${serialStr}`);
-                    if (typeof callback === 'function') {
-                        callback(newOrderedIds);
-                    }
-                } catch (err) {
-                    console.warn('Error saving article order:', err);
-                }
+                await commitReorderedArticles(draggedCard);
             });
 
             // Drag End
@@ -1047,7 +1077,19 @@ const HubStore = (() => {
             }
 
             if (topicIdOrSlug) {
-                articles = articles.filter(a => a.topicId === topicIdOrSlug || a.topicSlug === topicIdOrSlug);
+                const cleanTarget = topicIdOrSlug.toString().toLowerCase().trim();
+                const topicObj = typeof getTopic === 'function' ? getTopic(topicIdOrSlug) : null;
+                const matchId = topicObj ? topicObj.id : null;
+                const matchSlug = topicObj ? (topicObj.slug || '').toLowerCase() : null;
+                const matchName = topicObj ? (topicObj.name || '').toLowerCase().replace(/[^a-z0-9]/g, '') : null;
+
+                articles = articles.filter(a => {
+                    if (a.topicId === topicIdOrSlug || (matchId && a.topicId === matchId)) return true;
+                    if (a.topicSlug === topicIdOrSlug || (matchSlug && (a.topicSlug || '').toLowerCase() === matchSlug)) return true;
+                    if (cleanTarget && (a.topicSlug || '').toLowerCase() === cleanTarget) return true;
+                    if (matchName && (a.topicName || '').toLowerCase().replace(/[^a-z0-9]/g, '') === matchName) return true;
+                    return false;
+                });
             }
 
             // Sort by order ascending if defined, then newest first
@@ -1173,7 +1215,7 @@ const HubStore = (() => {
             date: dateStr,
             order: existingIndex >= 0 && typeof articles[existingIndex].order === 'number'
                    ? articles[existingIndex].order
-                   : (typeof articleData.order === 'number' ? articleData.order : 0),
+                   : (typeof articleData.order === 'number' ? articleData.order : (articles.length > 0 ? Math.max(...articles.map(a => typeof a.order === 'number' ? a.order : 0)) + 1 : 0)),
             excerpt: primaryExcerpt,
             tags: tags,
             content: articleData.content || '',

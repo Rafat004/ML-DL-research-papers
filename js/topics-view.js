@@ -559,7 +559,8 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
     }
 
     pageTitle.innerHTML = `<span style="font-size: 0.9em; margin-right: 8px;">${topic.icon || '🧠'}</span>${escapeHtml(topic.name)}`;
-    pageDesc.textContent = topic.description || `Research notes, derivations, and code for ${topic.name}.`;
+    const descText = topic.description || `Research notes, derivations, and code for ${topic.name}.`;
+    pageDesc.innerHTML = `${escapeHtml(descText)} <span class="topic-reorder-hint" style="margin-left: 10px;">↕️ Drag notes up/down to customize sequence</span>`;
 
     const hasHtml = HubStore.topicHasHtml(topic);
     const htmlInfo = HubStore.getTopicHtmlInfo(topic);
@@ -672,11 +673,11 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
 
             notesHtml += `
                 <a href="article.html?id=${art.id}" class="post-card" data-article-id="${art.id}" draggable="true">
-                    <div class="note-drag-handle" title="Drag up or down to change note position" aria-label="Drag note to reorder">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                            <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
-                            <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
-                            <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+                    <div class="note-drag-handle" title="Drag up or down to change note position (PowerPoint slide style)" aria-label="Drag note to reorder">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="8" cy="6" r="1.6"/><circle cx="16" cy="6" r="1.6"/>
+                            <circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/>
+                            <circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/>
                         </svg>
                     </div>
                     <div class="post-date">
@@ -695,6 +696,10 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
                             ${diagramBadge}
                             ${htmlBadge}
                         </div>
+                    </div>
+                    <div class="note-reorder-actions" title="Quick reorder position">
+                        <button type="button" class="btn-note-move" data-action="up" title="Move note up">▲</button>
+                        <button type="button" class="btn-note-move" data-action="down" title="Move note down">▼</button>
                     </div>
                     <div class="post-arrow">→</div>
                 </a>
@@ -745,6 +750,10 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
                 tabRoadmap?.classList.remove('active');
                 if (viewNotes) viewNotes.style.display = 'block';
                 if (viewRoadmap) viewRoadmap.style.display = 'none';
+                const notesList = viewNotes?.querySelector('.posts-list');
+                if (notesList && typeof HubStore.initArticleDragAndDrop === 'function') {
+                    HubStore.initArticleDragAndDrop(notesList, topic.id);
+                }
             }
         };
 

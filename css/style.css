@@ -765,35 +765,99 @@ img {
     transform: translateX(4px);
 }
 
-/* Note Card Drag Handle & Reordering (Slide style) */
+/* Note Card Drag Handle & Reordering (PowerPoint Slide style) */
+.topic-drag-handle svg,
+.note-drag-handle svg {
+    pointer-events: none;
+}
+
+.post-card[draggable="true"] {
+    cursor: grab;
+}
+
+.post-card[draggable="true"]:active {
+    cursor: grabbing;
+}
+
 .note-drag-handle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
+    width: 28px;
+    height: 34px;
+    border-radius: var(--radius-sm, 6px);
+    background: var(--color-bg-secondary, rgba(0, 0, 0, 0.03));
+    border: 1px solid var(--color-border);
     color: var(--color-text-muted);
-    opacity: 0.35;
+    opacity: 0.85;
     cursor: grab;
     transition: all var(--transition-fast);
     flex-shrink: 0;
     align-self: center;
+    user-select: none;
 }
 
 .post-card:hover .note-drag-handle {
-    opacity: 0.95;
+    opacity: 1;
     color: var(--color-accent);
+    border-color: var(--color-accent-border);
+    background: var(--color-accent-bg);
 }
 
 .note-drag-handle:hover {
     background: var(--color-accent-bg);
     color: var(--color-accent);
-    transform: scale(1.18);
+    border-color: var(--color-accent);
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
 }
 
 .note-drag-handle:active {
     cursor: grabbing;
+    transform: scale(0.96);
+}
+
+.note-reorder-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-self: center;
+    opacity: 0.5;
+    transition: opacity var(--transition-fast);
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.post-card:hover .note-reorder-actions {
+    opacity: 1;
+}
+
+.btn-note-move {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 20px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+}
+
+.btn-note-move:hover {
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: scale(1.15);
+}
+
+.btn-note-move:active {
+    transform: scale(0.92);
 }
 
 .post-card.is-dragging {
@@ -804,6 +868,7 @@ img {
 }
 
 .post-card.drop-before-note {
+    position: relative;
     border-top: 3px solid var(--color-accent) !important;
     box-shadow: 0 -6px 18px rgba(37, 99, 235, 0.35);
     transform: translateY(2px);
@@ -815,14 +880,15 @@ img {
     position: absolute;
     top: -5px;
     left: 12px;
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     background: var(--color-accent);
     border-radius: 50%;
-    box-shadow: 0 0 8px var(--color-accent);
+    box-shadow: 0 0 10px var(--color-accent);
 }
 
 .post-card.drop-after-note {
+    position: relative;
     border-bottom: 3px solid var(--color-accent) !important;
     box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
     transform: translateY(-2px);
@@ -834,27 +900,28 @@ img {
     position: absolute;
     bottom: -5px;
     left: 12px;
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     background: var(--color-accent);
     border-radius: 50%;
-    box-shadow: 0 0 8px var(--color-accent);
+    box-shadow: 0 0 10px var(--color-accent);
 }
 
 .note-order-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     font-weight: 700;
     color: var(--color-accent);
     background: var(--color-accent-bg);
     border: 1px solid var(--color-accent-border);
-    padding: 0.12rem 0.45rem;
-    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    border-radius: 5px;
     letter-spacing: 0.04em;
     font-family: var(--font-mono, monospace);
     transition: all 0.3s ease;
+    user-select: none;
 }
 
 .note-order-badge.updated-pulse {

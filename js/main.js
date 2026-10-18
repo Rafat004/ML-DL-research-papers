@@ -226,11 +226,11 @@ function renderRecentPosts() {
 
         html += `
             <a href="article.html?id=${art.id}" class="post-card" id="post-${art.id}" data-article-id="${art.id}" draggable="true">
-                <div class="note-drag-handle" title="Drag up or down to change note position" aria-label="Drag note to reorder">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
-                        <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
-                        <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+                <div class="note-drag-handle" title="Drag up or down to change note position (PowerPoint slide style)" aria-label="Drag note to reorder">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="8" cy="6" r="1.6"/><circle cx="16" cy="6" r="1.6"/>
+                        <circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/>
+                        <circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/>
                     </svg>
                 </div>
                 <div class="post-date">
@@ -249,6 +249,10 @@ function renderRecentPosts() {
                         ${diagramBadge}
                         ${htmlBadge}
                     </div>
+                </div>
+                <div class="note-reorder-actions" title="Quick reorder position">
+                    <button type="button" class="btn-note-move" data-action="up" title="Move note up">▲</button>
+                    <button type="button" class="btn-note-move" data-action="down" title="Move note down">▼</button>
                 </div>
                 <div class="post-arrow">→</div>
             </a>
