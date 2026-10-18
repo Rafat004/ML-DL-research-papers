@@ -232,7 +232,13 @@ function renderRecentPosts() {
 }
 
 /* ---- Home Topic Creation Modal ---- */
+let homeTopicModalInitialized = false;
+let isSavingHomeTopic = false;
+
 function initHomeTopicModal() {
+    if (homeTopicModalInitialized) return;
+    homeTopicModalInitialized = true;
+
     const modal = document.getElementById('modal-home-topic');
     const btnOpen = document.getElementById('btn-modal-create-topic');
     const btnHeaderOpen = document.getElementById('btn-header-create-topic');
@@ -247,24 +253,40 @@ function initHomeTopicModal() {
     btnClose?.addEventListener('click', closeHomeTopicModal);
     btnCancel?.addEventListener('click', closeHomeTopicModal);
 
-    btnSave?.addEventListener('click', () => {
-        const name = document.getElementById('home-topic-name').value.trim();
+    btnSave?.addEventListener('click', async () => {
+        if (isSavingHomeTopic) return;
+
+        const nameInput = document.getElementById('home-topic-name');
+        const name = (nameInput?.value || '').trim();
         if (!name) {
             alert('Please enter a topic name');
+            nameInput?.focus();
             return;
         }
 
-        const icon = document.getElementById('home-topic-icon').value.trim() || '🧠';
-        const tag = document.getElementById('home-topic-tag').value.trim() || 'Topic';
-        const desc = document.getElementById('home-topic-desc').value.trim();
+        const icon = (document.getElementById('home-topic-icon')?.value || '').trim() || '🧠';
+        const tag = (document.getElementById('home-topic-tag')?.value || '').trim() || 'Topic';
+        const desc = (document.getElementById('home-topic-desc')?.value || '').trim();
         const customHtml = (document.getElementById('home-topic-custom-html')?.value || '').trim();
         const htmlTitle = (document.getElementById('home-topic-html-title')?.value || '').trim();
         const htmlTag = (document.getElementById('home-topic-html-tag')?.value || '').trim();
 
-        HubStore.saveTopic({ name, icon, tag, description: desc, customHtml, htmlTitle, htmlTag });
-        closeHomeTopicModal();
-        renderStats();
-        renderTopicsGrid();
+        isSavingHomeTopic = true;
+        btnSave.disabled = true;
+        btnSave.textContent = 'Saving...';
+
+        try {
+            await HubStore.saveTopic({ name, icon, tag, description: desc, customHtml, htmlTitle, htmlTag });
+            closeHomeTopicModal();
+            renderStats();
+            renderTopicsGrid();
+        } catch (e) {
+            alert(`Error saving topic: ${e.message}`);
+        } finally {
+            isSavingHomeTopic = false;
+            btnSave.disabled = false;
+            btnSave.textContent = 'Create Topic';
+        }
     });
 }
 

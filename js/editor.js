@@ -769,7 +769,10 @@ if __name__ == "__main__":
     btnCloseTopicModal.addEventListener('click', closeTopicModal);
     btnCancelTopicModal.addEventListener('click', closeTopicModal);
 
-    btnSaveNewTopic.addEventListener('click', async () => {
+    let isSavingNewTopic = false;
+    btnSaveNewTopic?.addEventListener('click', async () => {
+        if (isSavingNewTopic) return;
+
         const name = document.getElementById('new-topic-name').value.trim();
         if (!name) {
             showToast('Please enter a topic name', 'warning');
@@ -780,6 +783,7 @@ if __name__ == "__main__":
         const tag = document.getElementById('new-topic-tag').value.trim() || 'Custom';
         const desc = document.getElementById('new-topic-desc').value.trim();
 
+        isSavingNewTopic = true;
         btnSaveNewTopic.disabled = true;
         btnSaveNewTopic.textContent = 'Saving...';
         try {
@@ -796,6 +800,7 @@ if __name__ == "__main__":
         } catch (e) {
             showToast(`Error creating topic: ${e.message}`, 'error');
         } finally {
+            isSavingNewTopic = false;
             btnSaveNewTopic.disabled = false;
             btnSaveNewTopic.textContent = 'Save Topic';
         }

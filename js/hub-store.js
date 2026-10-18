@@ -245,21 +245,160 @@ const HubStore = (() => {
         return Boolean(getFirebaseDb());
     }
 
+    /* ---- Deduplication & Concurrency Guards ---- */
+    const pendingTopicSaves = new Map();
+    let isCleaningFirestoreDuplicates = false;
+
+    function deduplicateTopics(topicsList) {
+        if (!Array.isArray(topicsList) || topicsList.length === 0) {
+            return { deduped: [], duplicatesToDelete: [] };
+        }
+
+        const uniqueMap = new Map();
+        const duplicatesToDelete = [];
+
+        topicsList.forEach(topic => {
+            if (!topic || (!topic.name && !topic.slug && !topic.id)) return;
+            const rawName = (topic.name || '').trim();
+            const s = (topic.slug || slugify(rawName || 'untitled-topic')).toLowerCase().trim();
+            const n = rawName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            // Key primarily by slug, fallback to alphanumeric name
+            const key = s || n;
+            if (!key) return;
+
+            if (!uniqueMap.has(key)) {
+                uniqueMap.set(key, { ...topic, slug: topic.slug || s });
+            } else {
+                const existing = uniqueMap.get(key);
+                const existingHasHtml = Boolean((existing.customHtml && existing.customHtml.trim()) || existing.customHtmlUrl);
+                const topicHasHtml = Boolean((topic.customHtml && topic.customHtml.trim()) || topic.customHtmlUrl);
+
+                let winner = existing;
+                let loser = topic;
+
+                if (topicHasHtml && !existingHasHtml) {
+                    winner = { ...topic, slug: topic.slug || s };
+                    loser = existing;
+                } else if (!topicHasHtml && existingHasHtml) {
+                    winner = existing;
+                    loser = topic;
+                } else {
+                    const timeA = existing.updatedAt || existing.createdAt || 0;
+                    const timeB = topic.updatedAt || topic.createdAt || 0;
+                    if (timeB >= timeA) {
+                        winner = { ...topic, slug: topic.slug || s };
+                        loser = existing;
+                    } else {
+                        winner = existing;
+                        loser = topic;
+                    }
+                }
+
+                // Preserve non-empty fields from loser if winner lacks them
+                if (!winner.description && loser.description) winner.description = loser.description;
+                if (!winner.customHtml && loser.customHtml) winner.customHtml = loser.customHtml;
+                if (!winner.customHtmlUrl && loser.customHtmlUrl) winner.customHtmlUrl = loser.customHtmlUrl;
+                if (!winner.htmlTitle && loser.htmlTitle) winner.htmlTitle = loser.htmlTitle;
+                if (!winner.htmlTag && loser.htmlTag) winner.htmlTag = loser.htmlTag;
+                if (!winner.icon && loser.icon) winner.icon = loser.icon;
+                if (!winner.tag && loser.tag) winner.tag = loser.tag;
+                if (!winner.createdAt || (loser.createdAt && loser.createdAt < winner.createdAt)) {
+                    winner.createdAt = loser.createdAt;
+                }
+
+                uniqueMap.set(key, winner);
+
+                if (loser.id && loser.id !== winner.id) {
+                    duplicatesToDelete.push({ loserId: loser.id, winnerId: winner.id, slug: winner.slug });
+                }
+            }
+        });
+
+        const deduped = Array.from(uniqueMap.values());
+        return { deduped, duplicatesToDelete };
+    }
+
+    function remapArticleTopicIds(duplicates) {
+        if (!duplicates || duplicates.length === 0) return;
+        try {
+            const rawArticles = localStorage.getItem(STORAGE_KEY_ARTICLES);
+            if (!rawArticles) return;
+            const articles = JSON.parse(rawArticles);
+            if (!Array.isArray(articles) || articles.length === 0) return;
+
+            let changed = false;
+            const remapMap = new Map();
+            duplicates.forEach(d => {
+                if (d.loserId && d.winnerId && d.loserId !== d.winnerId) {
+                    remapMap.set(d.loserId, d.winnerId);
+                }
+            });
+
+            if (remapMap.size === 0) return;
+
+            articles.forEach(art => {
+                if (art.topicId && remapMap.has(art.topicId)) {
+                    art.topicId = remapMap.get(art.topicId);
+                    changed = true;
+                }
+            });
+
+            if (changed) {
+                localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(articles));
+            }
+        } catch (e) {
+            console.warn('Error remapping article topic IDs:', e);
+        }
+    }
+
+    async function cleanupFirestoreTopicDuplicates(duplicates) {
+        const db = getFirebaseDb();
+        if (!db || !Array.isArray(duplicates) || duplicates.length === 0) return;
+        if (isCleaningFirestoreDuplicates) return;
+        isCleaningFirestoreDuplicates = true;
+
+        try {
+            for (const item of duplicates) {
+                if (item.loserId && item.loserId !== item.winnerId) {
+                    try {
+                        await db.collection('topics').doc(item.loserId).delete();
+                        console.log(`[HubStore] Cleaned up duplicate topic doc from Firestore: ${item.loserId} (${item.slug})`);
+                    } catch (docErr) {
+                        console.warn(`[HubStore] Could not delete duplicate topic doc ${item.loserId}:`, docErr.message);
+                    }
+                }
+            }
+        } finally {
+            isCleaningFirestoreDuplicates = false;
+        }
+    }
+
     /* ---- Topics Storage ---- */
     function getTopics() {
         try {
             const raw = localStorage.getItem(STORAGE_KEY_TOPICS);
-            if (!raw) {
+            let list = null;
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        list = parsed;
+                    }
+                } catch (e) {}
+            }
+            if (!list) {
                 return [...INITIAL_TOPICS];
             }
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-                if (parsed.length === 0) {
-                    return [...INITIAL_TOPICS];
+
+            const { deduped, duplicatesToDelete } = deduplicateTopics(list);
+            if (duplicatesToDelete.length > 0 || deduped.length !== list.length) {
+                localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(deduped));
+                if (duplicatesToDelete.length > 0) {
+                    remapArticleTopicIds(duplicatesToDelete);
+                    cleanupFirestoreTopicDuplicates(duplicatesToDelete);
                 }
-                return parsed;
             }
-            return [...INITIAL_TOPICS];
+            return deduped;
         } catch (e) {
             console.error('Error reading topics from localStorage:', e);
             return [...INITIAL_TOPICS];
@@ -282,56 +421,88 @@ const HubStore = (() => {
     }
 
     async function saveTopic(topicData) {
-        const topics = getTopics();
-        const slug = slugify(topicData.name || 'untitled-topic');
-        
-        let existingIndex = -1;
-        if (topicData.id) {
-            existingIndex = topics.findIndex(t => t.id === topicData.id);
-        } else {
-            existingIndex = topics.findIndex(t => t.slug === slug);
+        if (!topicData || !topicData.name || !topicData.name.trim()) {
+            throw new Error('Topic name is required');
         }
 
-        const now = Date.now();
-        const topicRecord = {
-            id: topicData.id || uid('top'),
-            name: topicData.name.trim(),
-            slug: slug,
-            icon: topicData.icon || '🧠',
-            tag: topicData.tag || 'Deep Learning',
-            description: (topicData.description || '').trim(),
-            customHtml: topicData.customHtml !== undefined ? topicData.customHtml : (existingIndex >= 0 ? (topics[existingIndex].customHtml || '') : ''),
-            customHtmlUrl: topicData.customHtmlUrl !== undefined ? topicData.customHtmlUrl : (existingIndex >= 0 ? (topics[existingIndex].customHtmlUrl || '') : ''),
-            htmlTitle: topicData.htmlTitle !== undefined ? topicData.htmlTitle : (existingIndex >= 0 ? (topics[existingIndex].htmlTitle || '') : ''),
-            htmlTag: topicData.htmlTag !== undefined ? topicData.htmlTag : (existingIndex >= 0 ? (topics[existingIndex].htmlTag || '') : ''),
-            createdAt: existingIndex >= 0 ? topics[existingIndex].createdAt : now,
-            updatedAt: now
-        };
+        const name = topicData.name.trim();
+        const slug = slugify(name || 'untitled-topic');
 
-        if (existingIndex >= 0) {
-            topics[existingIndex] = topicRecord;
-        } else {
-            topics.push(topicRecord);
+        // Mutex: Coalesce concurrent save requests for the same slug
+        if (pendingTopicSaves.has(slug)) {
+            return await pendingTopicSaves.get(slug);
         }
 
-        localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(topics));
+        const saveAction = (async () => {
+            const topics = getTopics();
+            const normalizedName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        let cloudSaved = false;
-        let cloudError = null;
-
-        // Save to Firebase Firestore if connected
-        const db = getFirebaseDb();
-        if (db) {
-            try {
-                await db.collection('topics').doc(topicRecord.id).set(topicRecord);
-                cloudSaved = true;
-            } catch (err) {
-                console.error('Failed to save topic to Firebase:', err);
-                cloudError = err.message;
+            let existingIndex = -1;
+            if (topicData.id) {
+                existingIndex = topics.findIndex(t => t.id === topicData.id);
             }
-        }
+            if (existingIndex < 0) {
+                existingIndex = topics.findIndex(t => 
+                    t.slug === slug || 
+                    (t.name && t.name.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedName)
+                );
+            }
 
-        return { ...topicRecord, cloudSaved, cloudError };
+            const now = Date.now();
+            const existing = existingIndex >= 0 ? topics[existingIndex] : null;
+
+            const topicRecord = {
+                id: (existing && existing.id) ? existing.id : (topicData.id || uid('top')),
+                name: name,
+                slug: slug,
+                icon: topicData.icon || (existing ? existing.icon : '🧠'),
+                tag: topicData.tag || (existing ? existing.tag : 'Deep Learning'),
+                description: (topicData.description !== undefined ? topicData.description : (existing ? existing.description : '')).trim(),
+                customHtml: topicData.customHtml !== undefined ? topicData.customHtml : (existing ? existing.customHtml || '' : ''),
+                customHtmlUrl: topicData.customHtmlUrl !== undefined ? topicData.customHtmlUrl : (existing ? existing.customHtmlUrl || '' : ''),
+                htmlTitle: topicData.htmlTitle !== undefined ? topicData.htmlTitle : (existing ? existing.htmlTitle || '' : ''),
+                htmlTag: topicData.htmlTag !== undefined ? topicData.htmlTag : (existing ? existing.htmlTag || '' : ''),
+                createdAt: existing ? (existing.createdAt || now) : now,
+                updatedAt: now
+            };
+
+            if (existingIndex >= 0) {
+                topics[existingIndex] = topicRecord;
+            } else {
+                topics.push(topicRecord);
+            }
+
+            const { deduped, duplicatesToDelete } = deduplicateTopics(topics);
+            localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(deduped));
+            if (duplicatesToDelete.length > 0) {
+                remapArticleTopicIds(duplicatesToDelete);
+                cleanupFirestoreTopicDuplicates(duplicatesToDelete);
+            }
+
+            let cloudSaved = false;
+            let cloudError = null;
+
+            // Save to Firebase Firestore if connected
+            const db = getFirebaseDb();
+            if (db) {
+                try {
+                    await db.collection('topics').doc(topicRecord.id).set(topicRecord);
+                    cloudSaved = true;
+                } catch (err) {
+                    console.error('Failed to save topic to Firebase:', err);
+                    cloudError = err.message;
+                }
+            }
+
+            return { ...topicRecord, cloudSaved, cloudError };
+        })();
+
+        pendingTopicSaves.set(slug, saveAction);
+        try {
+            return await saveAction;
+        } finally {
+            pendingTopicSaves.delete(slug);
+        }
     }
 
     async function deleteTopic(topicIdOrSlug) {
@@ -340,16 +511,30 @@ const HubStore = (() => {
         const targetSlug = topic ? topic.slug : topicIdOrSlug;
         const targetName = topic ? topic.name : '';
 
-        let topics = getTopics().filter(t => t.id !== targetId && t.slug !== targetSlug);
+        const normalizedTargetSlug = (targetSlug || slugify(targetName || '')).toLowerCase().trim();
+        const normalizedTargetName = (targetName || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+        const allTopics = getTopics();
+        const idsToDelete = new Set();
+        if (targetId) idsToDelete.add(targetId);
+
+        allTopics.forEach(t => {
+            const s = (t.slug || slugify(t.name || '')).toLowerCase().trim();
+            const n = (t.name || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            if (t.id === targetId || s === normalizedTargetSlug || (normalizedTargetName && n === normalizedTargetName)) {
+                if (t.id) idsToDelete.add(t.id);
+            }
+        });
+
+        let topics = allTopics.filter(t => !idsToDelete.has(t.id));
         localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(topics));
 
         // Also remove articles belonging to this topic locally
         let articles = getArticles().filter(a => 
-            a.topicId !== targetId && 
+            !idsToDelete.has(a.topicId) && 
             a.topicSlug !== targetSlug && 
             (!targetName || a.topicName !== targetName)
         );
-        // If no topics remain, clean any orphan articles
         if (topics.length === 0) {
             articles = [];
         }
@@ -359,15 +544,23 @@ const HubStore = (() => {
         const db = getFirebaseDb();
         if (db) {
             try {
-                await db.collection('topics').doc(targetId).delete();
+                for (const id of idsToDelete) {
+                    try {
+                        await db.collection('topics').doc(id).delete();
+                    } catch (err) {}
+                }
 
                 // Delete matching articles from Firestore by topicId
-                const artsSnap = await db.collection('articles')
-                    .where('topicId', '==', targetId)
-                    .get();
-                const batch = db.batch();
-                artsSnap.forEach(doc => batch.delete(doc.ref));
-                await batch.commit();
+                for (const id of idsToDelete) {
+                    const artsSnap = await db.collection('articles')
+                        .where('topicId', '==', id)
+                        .get();
+                    if (!artsSnap.empty) {
+                        const batch = db.batch();
+                        artsSnap.forEach(doc => batch.delete(doc.ref));
+                        await batch.commit();
+                    }
+                }
 
                 // Also delete by topicSlug if any
                 if (targetSlug) {
@@ -646,9 +839,14 @@ const HubStore = (() => {
                 map.set(r.id, r);
             }
         });
-        const merged = Array.from(map.values());
-        localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(merged));
-        return merged;
+        const rawMerged = Array.from(map.values());
+        const { deduped, duplicatesToDelete } = deduplicateTopics(rawMerged);
+        localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(deduped));
+        if (duplicatesToDelete.length > 0) {
+            remapArticleTopicIds(duplicatesToDelete);
+            cleanupFirestoreTopicDuplicates(duplicatesToDelete);
+        }
+        return deduped;
     }
 
     function mergeArticles(remoteList) {
@@ -681,11 +879,20 @@ const HubStore = (() => {
         try {
             // Fetch topics from Firestore
             const topicsSnap = await db.collection('topics').get();
-            const remoteTopics = [];
+            const rawRemoteTopics = [];
             topicsSnap.forEach(doc => {
                 const data = doc.data();
-                if (data && (data.name || data.id)) remoteTopics.push(data);
+                if (data && (data.name || data.id)) {
+                    if (!data.id) data.id = doc.id;
+                    rawRemoteTopics.push(data);
+                }
             });
+
+            const { deduped: remoteTopics, duplicatesToDelete } = deduplicateTopics(rawRemoteTopics);
+            if (duplicatesToDelete.length > 0) {
+                remapArticleTopicIds(duplicatesToDelete);
+                cleanupFirestoreTopicDuplicates(duplicatesToDelete);
+            }
 
             // Fetch articles from Firestore
             const articlesSnap = await db.collection('articles').get();
@@ -728,9 +935,17 @@ const HubStore = (() => {
                 const list = [];
                 snap.forEach(d => {
                     const data = d.data();
-                    if (data && (data.name || data.id)) list.push(data);
+                    if (data && (data.name || data.id)) {
+                        if (!data.id) data.id = d.id;
+                        list.push(data);
+                    }
                 });
-                localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(list));
+                const { deduped, duplicatesToDelete } = deduplicateTopics(list);
+                if (duplicatesToDelete.length > 0) {
+                    remapArticleTopicIds(duplicatesToDelete);
+                    cleanupFirestoreTopicDuplicates(duplicatesToDelete);
+                }
+                localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(deduped));
                 window.dispatchEvent(new CustomEvent('hub:synced'));
             }, err => console.warn('Topics listener warning:', err));
 
@@ -1043,6 +1258,8 @@ const HubStore = (() => {
         importBackup,
         renderMarkdown,
         slugify,
+        deduplicateTopics,
+        cleanupFirestoreTopicDuplicates,
         isRoadmapTopic,
         topicHasHtml,
         getTopicHtmlInfo,

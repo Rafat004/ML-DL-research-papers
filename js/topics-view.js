@@ -3,65 +3,106 @@
    Renders topic list or topic-specific articles dynamically.
    ============================================================ */
 
+let topicModalsBound = false;
+let activeTopicForHtmlModal = null;
+let isSavingTopic = false;
+let isSavingHtmlModal = false;
+
 document.addEventListener('DOMContentLoaded', () => {
-    initTopicsView();
+    initTopicModalsOnce();
+    renderTopicsView();
 });
 
 window.addEventListener('hub:synced', () => {
-    initTopicsView();
+    // Re-render topic view without re-binding modal listeners
+    renderTopicsView();
 });
 
 function initTopicsView() {
-    const container = document.getElementById('topics-view-container');
-    const pageTitle = document.getElementById('topics-page-title');
-    const pageDesc = document.getElementById('topics-page-desc');
+    initTopicModalsOnce();
+    renderTopicsView();
+}
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const topicSlug = urlParams.get('topic');
+function initTopicModalsOnce() {
+    if (topicModalsBound) return;
+    topicModalsBound = true;
 
+    // --- Modal 1: Create Topic Modal ---
     const modal = document.getElementById('modal-topics-page-topic');
     const btnAddTopic = document.getElementById('btn-topics-add-topic');
     const btnCloseModal = document.getElementById('btn-close-topic-page-modal');
     const btnCancelModal = document.getElementById('btn-cancel-topic-page-modal');
     const btnSaveTopic = document.getElementById('btn-save-topic-page-modal');
 
-    // Modal controls
-    btnAddTopic?.addEventListener('click', () => {
+    const openCreateTopicModal = () => {
+        if (!modal) return;
         modal.classList.add('active');
         document.getElementById('page-topic-name')?.focus();
-    });
+    };
 
-    const closeModal = () => modal.classList.remove('active');
-    btnCloseModal?.addEventListener('click', closeModal);
-    btnCancelModal?.addEventListener('click', closeModal);
+    const closeCreateTopicModal = () => {
+        if (!modal) return;
+        modal.classList.remove('active');
+    };
+
+    btnAddTopic?.addEventListener('click', openCreateTopicModal);
+    btnCloseModal?.addEventListener('click', closeCreateTopicModal);
+    btnCancelModal?.addEventListener('click', closeCreateTopicModal);
 
     btnSaveTopic?.addEventListener('click', async () => {
-        const name = document.getElementById('page-topic-name').value.trim();
+        if (isSavingTopic) return;
+
+        const nameInput = document.getElementById('page-topic-name');
+        const name = (nameInput?.value || '').trim();
         if (!name) {
             alert('Please enter a topic name');
+            nameInput?.focus();
             return;
         }
 
-        const icon = document.getElementById('page-topic-icon').value.trim() || '🧠';
-        const tag = document.getElementById('page-topic-tag').value.trim() || 'Category';
-        const desc = document.getElementById('page-topic-desc').value.trim();
+        const icon = (document.getElementById('page-topic-icon')?.value || '').trim() || '🧠';
+        const tag = (document.getElementById('page-topic-tag')?.value || '').trim() || 'Category';
+        const desc = (document.getElementById('page-topic-desc')?.value || '').trim();
         const customHtml = (document.getElementById('page-topic-custom-html')?.value || '').trim();
         const htmlTitle = (document.getElementById('page-topic-html-title')?.value || '').trim();
         const htmlTag = (document.getElementById('page-topic-html-tag')?.value || '').trim();
 
+        isSavingTopic = true;
         btnSaveTopic.disabled = true;
         btnSaveTopic.textContent = 'Saving...';
+
         try {
             const saved = await HubStore.saveTopic({ name, icon, tag, description: desc, customHtml, htmlTitle, htmlTag });
-            closeModal();
+            closeCreateTopicModal();
+
+            if (nameInput) nameInput.value = '';
+            const descInput = document.getElementById('page-topic-desc');
+            if (descInput) descInput.value = '';
+            const customHtmlInput = document.getElementById('page-topic-custom-html');
+            if (customHtmlInput) customHtmlInput.value = '';
+
             window.location.href = `topics.html?topic=${saved.slug}`;
         } catch (e) {
             alert(`Error saving topic: ${e.message}`);
         } finally {
+            isSavingTopic = false;
             btnSaveTopic.disabled = false;
             btnSaveTopic.textContent = 'Create Topic';
         }
     });
+
+    // --- Modal 2: Embed Custom HTML Modal (Static controls bound ONCE) ---
+    initHtmlModalControlsOnce();
+}
+
+function renderTopicsView() {
+    const container = document.getElementById('topics-view-container');
+    const pageTitle = document.getElementById('topics-page-title');
+    const pageDesc = document.getElementById('topics-page-desc');
+    if (!container) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const topicSlug = urlParams.get('topic');
 
     if (topicSlug) {
         // Render Single Topic Detail
@@ -315,12 +356,10 @@ function getStarterHtmlTemplate(topicName) {
 </html>`;
 }
 
-function setupTopicHtmlModal(topic) {
+function initHtmlModalControlsOnce() {
     const modal = document.getElementById('modal-topic-html-embed');
     if (!modal) return;
 
-    const titleEl = document.getElementById('modal-html-topic-title');
-    const inputId = document.getElementById('topic-html-topic-id');
     const inputTitle = document.getElementById('topic-html-input-title');
     const inputTag = document.getElementById('topic-html-input-tag');
     const inputCode = document.getElementById('topic-html-code');
@@ -334,39 +373,20 @@ function setupTopicHtmlModal(topic) {
     const previewContainer = document.getElementById('modal-html-preview-container');
     const previewFrame = document.getElementById('modal-html-preview-frame');
     const btnClosePreview = document.getElementById('btn-close-modal-preview');
-
-    const openModal = () => {
-        titleEl.textContent = `🌐 Embed Custom HTML — ${topic.name}`;
-        inputId.value = topic.id;
-        inputTitle.value = topic.htmlTitle || (isRoadmapTopic(topic) ? 'Machine Learning Interactive Roadmap' : `${topic.name} Interactive View`);
-        inputTag.value = topic.htmlTag || (isRoadmapTopic(topic) ? '10 Core Branches' : 'Interactive App');
-        inputCode.value = topic.customHtml || '';
-        
-        if (topic.customHtml && topic.customHtml.trim().length > 0) {
-            btnRemove.style.display = 'inline-flex';
-        } else {
-            btnRemove.style.display = 'none';
-        }
-
-        previewContainer.style.display = 'none';
-        modal.classList.add('active');
-        inputCode.focus();
-    };
+    const btnDownload = document.getElementById('btn-download-topic-html');
 
     const closeModal = () => {
         modal.classList.remove('active');
-        previewContainer.style.display = 'none';
+        if (previewContainer) previewContainer.style.display = 'none';
     };
 
-    document.getElementById('btn-open-topic-html-modal')?.addEventListener('click', openModal);
-    document.getElementById('btn-iframe-edit-code')?.addEventListener('click', openModal);
     btnClose?.addEventListener('click', closeModal);
     btnCancel?.addEventListener('click', closeModal);
 
     btnPaste?.addEventListener('click', async () => {
         try {
             const text = await navigator.clipboard.readText();
-            if (text) {
+            if (text && inputCode) {
                 inputCode.value = text;
                 inputCode.focus();
             }
@@ -376,31 +396,32 @@ function setupTopicHtmlModal(topic) {
     });
 
     btnTemplate?.addEventListener('click', () => {
-        if (inputCode.value.trim().length > 0 && !confirm('Replace current editor code with the Interactive Roadmap template?')) {
+        if (!activeTopicForHtmlModal) return;
+        if (inputCode && inputCode.value.trim().length > 0 && !confirm('Replace current editor code with the Interactive Roadmap template?')) {
             return;
         }
-        inputCode.value = getStarterHtmlTemplate(topic.name);
-        if (!inputTitle.value.trim()) inputTitle.value = `${topic.name} Interactive Roadmap`;
-        if (!inputTag.value.trim()) inputTag.value = 'Curriculum Tree';
+        if (inputCode) inputCode.value = getStarterHtmlTemplate(activeTopicForHtmlModal.name);
+        if (inputTitle && !inputTitle.value.trim()) inputTitle.value = `${activeTopicForHtmlModal.name} Interactive Roadmap`;
+        if (inputTag && !inputTag.value.trim()) inputTag.value = 'Curriculum Tree';
     });
 
     btnPreview?.addEventListener('click', () => {
-        const code = inputCode.value;
+        const code = inputCode ? inputCode.value : '';
         if (!code.trim()) {
             alert('Please paste or write some HTML code first!');
             return;
         }
-        previewFrame.srcdoc = code;
-        previewContainer.style.display = 'block';
+        if (previewFrame) previewFrame.srcdoc = code;
+        if (previewContainer) previewContainer.style.display = 'block';
     });
 
     btnClosePreview?.addEventListener('click', () => {
-        previewContainer.style.display = 'none';
+        if (previewContainer) previewContainer.style.display = 'none';
     });
 
-    const btnDownload = document.getElementById('btn-download-topic-html');
     btnDownload?.addEventListener('click', () => {
-        const code = inputCode.value;
+        if (!activeTopicForHtmlModal) return;
+        const code = inputCode ? inputCode.value : '';
         if (!code.trim()) {
             alert('No HTML code to download yet. Please paste or write some HTML first.');
             return;
@@ -408,7 +429,7 @@ function setupTopicHtmlModal(topic) {
         const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `${(topic.slug || 'roadmap')}.html`;
+        a.download = `${(activeTopicForHtmlModal.slug || 'roadmap')}.html`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -416,26 +437,32 @@ function setupTopicHtmlModal(topic) {
     });
 
     btnSave?.addEventListener('click', async () => {
-        const code = inputCode.value.trim();
-        const htmlTitle = inputTitle.value.trim() || `${topic.name} Interactive View`;
-        const htmlTag = inputTag.value.trim() || 'Interactive App';
+        if (!activeTopicForHtmlModal || isSavingHtmlModal) return;
 
-        if (!code && !isRoadmapTopic(topic)) {
+        const code = (inputCode?.value || '').trim();
+        const htmlTitle = (inputTitle?.value || '').trim() || `${activeTopicForHtmlModal.name} Interactive View`;
+        const htmlTag = (inputTag?.value || '').trim() || 'Interactive App';
+
+        if (!code && !isRoadmapTopic(activeTopicForHtmlModal)) {
             alert('Please paste your HTML code before saving.');
             return;
         }
 
+        isSavingHtmlModal = true;
         btnSave.disabled = true;
         btnSave.textContent = 'Saving to Cloud & Local...';
+
         try {
             const saved = await HubStore.saveTopic({
-                ...topic,
+                ...activeTopicForHtmlModal,
                 customHtml: code,
                 htmlTitle: htmlTitle,
                 htmlTag: htmlTag
             });
+            activeTopicForHtmlModal = saved;
             closeModal();
-            initTopicsView();
+            renderTopicsView();
+
             if (saved && saved.cloudSaved) {
                 alert(`✓ Saved permanently!\n\n• Synced to Firebase Cloud Firestore\n• Saved to browser LocalStorage\n\nYour interactive page will remain forever on any device connected to your Firebase project.`);
             } else if (saved && saved.cloudError) {
@@ -446,23 +473,59 @@ function setupTopicHtmlModal(topic) {
         } catch (err) {
             alert(`Error saving HTML: ${err.message}`);
         } finally {
+            isSavingHtmlModal = false;
             btnSave.disabled = false;
             btnSave.textContent = '💾 Save & Render Interactive Page';
         }
     });
 
     btnRemove?.addEventListener('click', async () => {
-        if (confirm(`Remove custom HTML from "${topic.name}"? The topic will return to standard notes view.`)) {
-            await HubStore.saveTopic({
-                ...topic,
+        if (!activeTopicForHtmlModal) return;
+        if (confirm(`Remove custom HTML from "${activeTopicForHtmlModal.name}"? The topic will return to standard notes view.`)) {
+            const updated = await HubStore.saveTopic({
+                ...activeTopicForHtmlModal,
                 customHtml: '',
                 htmlTitle: '',
                 htmlTag: ''
             });
+            activeTopicForHtmlModal = updated;
             closeModal();
-            initTopicsView();
+            renderTopicsView();
         }
     });
+}
+
+function openTopicHtmlModal(topic) {
+    const modal = document.getElementById('modal-topic-html-embed');
+    if (!modal || !topic) return;
+
+    activeTopicForHtmlModal = topic;
+
+    const titleEl = document.getElementById('modal-html-topic-title');
+    const inputId = document.getElementById('topic-html-topic-id');
+    const inputTitle = document.getElementById('topic-html-input-title');
+    const inputTag = document.getElementById('topic-html-input-tag');
+    const inputCode = document.getElementById('topic-html-code');
+    const btnRemove = document.getElementById('btn-remove-topic-html');
+    const previewContainer = document.getElementById('modal-html-preview-container');
+
+    if (titleEl) titleEl.textContent = `🌐 Embed Custom HTML — ${topic.name}`;
+    if (inputId) inputId.value = topic.id;
+    if (inputTitle) inputTitle.value = topic.htmlTitle || (isRoadmapTopic(topic) ? 'Machine Learning Interactive Roadmap' : `${topic.name} Interactive View`);
+    if (inputTag) inputTag.value = topic.htmlTag || (isRoadmapTopic(topic) ? '10 Core Branches' : 'Interactive App');
+    if (inputCode) inputCode.value = topic.customHtml || '';
+
+    if (btnRemove) {
+        if (topic.customHtml && topic.customHtml.trim().length > 0) {
+            btnRemove.style.display = 'inline-flex';
+        } else {
+            btnRemove.style.display = 'none';
+        }
+    }
+
+    if (previewContainer) previewContainer.style.display = 'none';
+    modal.classList.add('active');
+    inputCode?.focus();
 }
 
 function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
@@ -684,8 +747,9 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
         document.getElementById('btn-iframe-fullscreen')?.addEventListener('click', openFullscreen);
     }
 
-    // Setup the Embed/Edit Custom HTML Modal
-    setupTopicHtmlModal(topic);
+    // Connect dynamic embed/edit custom HTML buttons to the modal
+    document.getElementById('btn-open-topic-html-modal')?.addEventListener('click', () => openTopicHtmlModal(topic));
+    document.getElementById('btn-iframe-edit-code')?.addEventListener('click', () => openTopicHtmlModal(topic));
 
     // Attach single topic delete action
     const btnDeleteTopic = document.getElementById('btn-delete-topic');
