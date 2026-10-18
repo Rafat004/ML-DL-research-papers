@@ -47,7 +47,183 @@ const HubStore = (() => {
         const s = (topic.slug || '').toLowerCase();
         const n = (topic.name || '').toLowerCase();
         const t = (topic.tag || '').toLowerCase();
-        return s.includes('roadmap') || n.includes('roadmap') || t.includes('roadmap') || Boolean(topic.isRoadmap);
+        return s.includes('roadmap') || n.includes('roadmap') || t.includes('roadmap') || Boolean(topic.isRoadmap) || Boolean(topic.customHtml && topic.customHtml.trim().length > 0) || Boolean(topic.customHtmlUrl && topic.customHtmlUrl.trim().length > 0);
+    }
+
+    /* ---- Helper: Detect if topic has an interactive HTML page ---- */
+    function topicHasHtml(topic) {
+        if (!topic) return false;
+        if (topic.customHtml && topic.customHtml.trim().length > 0) return true;
+        if (topic.customHtmlUrl && topic.customHtmlUrl.trim().length > 0) return true;
+        return isRoadmapTopic(topic);
+    }
+
+    function getStarterHtmlTemplate(topicName = 'Deep Learning Topic') {
+        const safeName = (topicName || 'Deep Learning Topic').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeName} — Interactive Overview</title>
+  <!-- KaTeX for math formulas -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2e;
+      --panel-hover: #19243c;
+      --text: #e5ecf7;
+      --muted: #9caec8;
+      --border: #283752;
+      --accent: #60a5fa;
+      --cyan: #67e8f9;
+      --purple: #c4b5fd;
+      --green: #6ee7b7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 30px 18px;
+      background: radial-gradient(ellipse at top, #172447 0%, transparent 60%), var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+    }
+    .container { max-width: 950px; margin: auto; }
+    header { text-align: center; margin-bottom: 32px; }
+    .eyebrow { color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; }
+    h1 {
+      margin: 8px 0;
+      font-size: clamp(28px, 5vw, 46px);
+      letter-spacing: -1px;
+      background: linear-gradient(90deg, var(--accent), var(--purple), var(--green));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    p.subtitle { color: var(--muted); max-width: 600px; margin: 10px auto; font-size: 15px; }
+    .tree { border-left: 2px solid #344765; margin-left: 12px; padding-left: 22px; }
+    .branch {
+      position: relative;
+      margin: 0 0 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(18, 26, 46, 0.95);
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+    .branch:hover { border-color: #50678b; background: var(--panel-hover); }
+    .branch::before {
+      content: "";
+      position: absolute;
+      left: -24px;
+      top: 24px;
+      width: 22px;
+      border-top: 2px solid #344765;
+    }
+    summary {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    .number {
+      display: grid;
+      place-items: center;
+      min-width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #172d4b;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .content { padding: 0 18px 18px 62px; color: #cbd7e8; font-size: 14px; }
+    .math {
+      background: #0f172a;
+      border: 1px solid #283752;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 10px 0;
+      color: #93c5fd;
+    }
+    code {
+      background: #1e293b;
+      color: #7dd3fc;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="eyebrow">Interactive Overview</div>
+    <h1>${safeName}</h1>
+    <p class="subtitle">Custom interactive knowledge branch with expandable modules and mathematical formulations.</p>
+  </header>
+
+  <section class="tree">
+    <details class="branch" open>
+      <summary>
+        <span class="number">01</span>
+        <span>Core Foundations & Intuition</span>
+      </summary>
+      <div class="content">
+        <p>Key mathematical formulation for this architecture:</p>
+        <div class="math">$$f(x) = \\sigma(W \\cdot x + b)$$</div>
+        <ul>
+          <li><strong>Input Space:</strong> Multi-dimensional tensor representations.</li>
+          <li><strong>Transformation:</strong> Linear projection followed by non-linear activation.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="branch">
+      <summary>
+        <span class="number">02</span>
+        <span>Optimization & Implementation</span>
+      </summary>
+      <div class="content">
+        <p>Loss function and gradient updates:</p>
+        <div class="math">$$\\mathcal{L} = -\\sum_{i} y_i \\log(\\hat{y}_i)$$</div>
+        <p>Implementation tip: Use PyTorch tensor broadcasting and mixed-precision operations.</p>
+      </div>
+    </details>
+  </section>
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\\\(', right: '\\\\)', display: false}], throwOnError: false});"></script>
+</body>
+</html>`;
+    }
+
+    function getTopicHtmlInfo(topic) {
+        if (!topic) return null;
+        const isRoadmap = isRoadmapTopic(topic);
+        const hasCode = Boolean(topic.customHtml && topic.customHtml.trim().length > 0);
+        const hasUrl = Boolean(topic.customHtmlUrl && topic.customHtmlUrl.trim().length > 0);
+
+        if (!hasCode && !hasUrl && !isRoadmap) return null;
+
+        return {
+            hasCode,
+            hasUrl,
+            customHtml: hasCode ? topic.customHtml : '',
+            url: hasUrl ? topic.customHtmlUrl : (isRoadmap ? 'ml.html' : ''),
+            title: topic.htmlTitle || (isRoadmap ? '🗺️ Machine Learning Interactive Roadmap' : '🗺️ Interactive View'),
+            tag: topic.htmlTag || (isRoadmap ? '10 Core Branches' : 'Interactive App')
+        };
     }
 
     /* ---- Firebase Helper ---- */
@@ -121,9 +297,13 @@ const HubStore = (() => {
             id: topicData.id || uid('top'),
             name: topicData.name.trim(),
             slug: slug,
-            icon: topicData.icon || '◈',
+            icon: topicData.icon || '🧠',
             tag: topicData.tag || 'Deep Learning',
             description: (topicData.description || '').trim(),
+            customHtml: topicData.customHtml !== undefined ? topicData.customHtml : (existingIndex >= 0 ? (topics[existingIndex].customHtml || '') : ''),
+            customHtmlUrl: topicData.customHtmlUrl !== undefined ? topicData.customHtmlUrl : (existingIndex >= 0 ? (topics[existingIndex].customHtmlUrl || '') : ''),
+            htmlTitle: topicData.htmlTitle !== undefined ? topicData.htmlTitle : (existingIndex >= 0 ? (topics[existingIndex].htmlTitle || '') : ''),
+            htmlTag: topicData.htmlTag !== undefined ? topicData.htmlTag : (existingIndex >= 0 ? (topics[existingIndex].htmlTag || '') : ''),
             createdAt: existingIndex >= 0 ? topics[existingIndex].createdAt : now,
             updatedAt: now
         };
@@ -343,6 +523,8 @@ const HubStore = (() => {
             diagram: primaryDiagram,
             diagramCaption: primaryCaption,
             sections: sections,
+            isHtmlNote: Boolean(articleData.isHtmlNote),
+            customHtml: articleData.customHtml || '',
             createdAt: existingIndex >= 0 ? articles[existingIndex].createdAt : now,
             updatedAt: now
         };
@@ -856,6 +1038,9 @@ const HubStore = (() => {
         importBackup,
         renderMarkdown,
         slugify,
-        isRoadmapTopic
+        isRoadmapTopic,
+        topicHasHtml,
+        getTopicHtmlInfo,
+        getStarterHtmlTemplate
     };
 })();

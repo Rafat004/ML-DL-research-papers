@@ -156,6 +156,41 @@ function initArticleViewer() {
     const html = HubStore.renderMarkdown(article.content || '');
     bodyEl.innerHTML = html;
 
+    // Render Interactive HTML container if article has custom HTML code
+    if (article.isHtmlNote && article.customHtml) {
+        const interactiveContainer = document.createElement('div');
+        interactiveContainer.className = 'topic-roadmap-container';
+        interactiveContainer.style.margin = '1rem 0 2rem';
+        interactiveContainer.innerHTML = `
+            <div class="topic-roadmap-header">
+                <div class="topic-roadmap-header-left">
+                    <span class="topic-roadmap-title">🌐 Interactive Web App / Custom HTML Document</span>
+                    <span class="topic-roadmap-tag">Interactive App</span>
+                </div>
+                <div class="topic-roadmap-header-actions">
+                    <button type="button" class="btn-roadmap-action" id="btn-art-html-expand">Expand All +</button>
+                    <button type="button" class="btn-roadmap-action" id="btn-art-html-collapse">Collapse All −</button>
+                    <button type="button" class="btn-roadmap-action btn-roadmap-primary" id="btn-art-html-fullscreen">Open Fullscreen ↗</button>
+                </div>
+            </div>
+            <iframe class="topic-roadmap-iframe" id="article-html-iframe" title="${escapeHtml(article.title)}"></iframe>
+        `;
+        bodyEl.prepend(interactiveContainer);
+        const artIframe = interactiveContainer.querySelector('#article-html-iframe');
+        if (artIframe) artIframe.srcdoc = article.customHtml;
+
+        interactiveContainer.querySelector('#btn-art-html-expand')?.addEventListener('click', () => {
+            try { artIframe?.contentWindow?.document.querySelectorAll('details.branch, details').forEach(d => d.open = true); } catch (e) {}
+        });
+        interactiveContainer.querySelector('#btn-art-html-collapse')?.addEventListener('click', () => {
+            try { artIframe?.contentWindow?.document.querySelectorAll('details.branch, details').forEach(d => d.open = false); } catch (e) {}
+        });
+        interactiveContainer.querySelector('#btn-art-html-fullscreen')?.addEventListener('click', () => {
+            const blob = new Blob([article.customHtml], { type: 'text/html;charset=utf-8' });
+            window.open(URL.createObjectURL(blob), '_blank');
+        });
+    }
+
     // Render KaTeX Math
     if (typeof renderMathInElement === 'function') {
         try {

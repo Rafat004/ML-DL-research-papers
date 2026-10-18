@@ -257,8 +257,11 @@ function initHomeTopicModal() {
         const icon = document.getElementById('home-topic-icon').value.trim() || '🧠';
         const tag = document.getElementById('home-topic-tag').value.trim() || 'Topic';
         const desc = document.getElementById('home-topic-desc').value.trim();
+        const customHtml = (document.getElementById('home-topic-custom-html')?.value || '').trim();
+        const htmlTitle = (document.getElementById('home-topic-html-title')?.value || '').trim();
+        const htmlTag = (document.getElementById('home-topic-html-tag')?.value || '').trim();
 
-        HubStore.saveTopic({ name, icon, tag, description: desc });
+        HubStore.saveTopic({ name, icon, tag, description: desc, customHtml, htmlTitle, htmlTag });
         closeHomeTopicModal();
         renderStats();
         renderTopicsGrid();

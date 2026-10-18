@@ -138,6 +138,11 @@ function initEditor() {
             }
         }
 
+        const customHtmlInput = document.getElementById('article-custom-html');
+        if (customHtmlInput) {
+            customHtmlInput.value = article.customHtml || '';
+        }
+
         updateLivePreview();
         statusText.textContent = 'Loaded';
     }
@@ -550,6 +555,63 @@ if __name__ == "__main__":
         if (previewCard) previewCard.style.display = 'flex';
     }
 
+    /* ---- Custom Interactive HTML Note Handlers ---- */
+    const noteHtmlInput = document.getElementById('article-custom-html');
+    const btnNotePaste = document.getElementById('btn-note-helper-paste');
+    const btnNoteTemplate = document.getElementById('btn-note-helper-template');
+    const btnNotePreview = document.getElementById('btn-note-helper-preview');
+    const notePreviewContainer = document.getElementById('note-html-preview-container');
+    const notePreviewFrame = document.getElementById('note-html-preview-frame');
+    const btnCloseNotePreview = document.getElementById('btn-close-note-preview');
+
+    if (noteHtmlInput) {
+        noteHtmlInput.addEventListener('input', () => {
+            markDirty();
+        });
+    }
+
+    btnNotePaste?.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text && noteHtmlInput) {
+                noteHtmlInput.value = text;
+                noteHtmlInput.focus();
+                markDirty();
+                showToast('Pasted HTML code from clipboard', 'info');
+            }
+        } catch (e) {
+            alert('Please paste directly into the textarea (Ctrl+V).');
+        }
+    });
+
+    btnNoteTemplate?.addEventListener('click', () => {
+        if (!noteHtmlInput) return;
+        if (noteHtmlInput.value.trim().length > 0 && !confirm('Replace current code with the Interactive Roadmap template?')) {
+            return;
+        }
+        const title = titleInput.value.trim() || 'Interactive Deep Learning Component';
+        noteHtmlInput.value = typeof HubStore !== 'undefined' && typeof HubStore.getStarterHtmlTemplate === 'function'
+            ? HubStore.getStarterHtmlTemplate(title)
+            : `<!DOCTYPE html><html><body><h1>${title}</h1></body></html>`;
+        markDirty();
+        showToast('Loaded Interactive Roadmap starter template', 'success');
+    });
+
+    btnNotePreview?.addEventListener('click', () => {
+        if (!noteHtmlInput || !notePreviewFrame || !notePreviewContainer) return;
+        const code = noteHtmlInput.value.trim();
+        if (!code) {
+            alert('Please write or paste some HTML code first!');
+            return;
+        }
+        notePreviewFrame.srcdoc = code;
+        notePreviewContainer.style.display = 'block';
+    });
+
+    btnCloseNotePreview?.addEventListener('click', () => {
+        if (notePreviewContainer) notePreviewContainer.style.display = 'none';
+    });
+
     /* ---- Save Article Locally ---- */
     btnSaveLocal.addEventListener('click', saveArticleLocally);
 
@@ -578,6 +640,8 @@ if __name__ == "__main__":
         }
 
         const primarySection = sections.find(s => s.description || s.diagram) || sections[0] || { description: '', diagram: '', diagramCaption: '' };
+        const customHtml = (document.getElementById('article-custom-html')?.value || '').trim();
+        const isHtmlNote = Boolean(customHtml.length > 0);
 
         return {
             id: currentArticleId,
@@ -590,7 +654,9 @@ if __name__ == "__main__":
             content: mdInput.value,
             diagram: primarySection.diagram,
             diagramCaption: primarySection.diagramCaption,
-            sections: sections
+            sections: sections,
+            customHtml: customHtml,
+            isHtmlNote: isHtmlNote
         };
     }
 

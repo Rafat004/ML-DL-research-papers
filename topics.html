@@ -100,10 +100,98 @@
                     <label class="form-label" for="page-topic-desc">Description</label>
                     <textarea id="page-topic-desc" class="form-input form-textarea-sm" placeholder="What does this research topic focus on?" rows="2"></textarea>
                 </div>
+
+                <details class="html-embed-details">
+                    <summary>🌐 Attach Custom HTML Page / Interactive App (Optional)</summary>
+                    <div style="margin-top: 0.75rem;">
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label class="form-label" for="page-topic-html-title">Interactive Tab Title</label>
+                                <input type="text" id="page-topic-html-title" class="form-input" placeholder="e.g. 🗺️ Interactive Roadmap">
+                            </div>
+                            <div class="form-group flex-1">
+                                <label class="form-label" for="page-topic-html-tag">Badge / Tag</label>
+                                <input type="text" id="page-topic-html-tag" class="form-input" placeholder="e.g. 10 Branches, Interactive Tree">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="page-topic-custom-html">HTML Code (complete HTML document or snippet)</label>
+                            <textarea id="page-topic-custom-html" class="html-editor-textarea" style="min-height: 140px;" placeholder="<!DOCTYPE html>... Paste your HTML code here"></textarea>
+                        </div>
+                    </div>
+                </details>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="btn-cancel-topic-page-modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="btn-save-topic-page-modal">Create Topic</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Embed Custom HTML Modal for Existing Topic -->
+    <div class="modal-overlay" id="modal-topic-html-embed">
+        <div class="modal-card modal-card-lg">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modal-html-topic-title">🌐 Embed Custom HTML / Interactive Page</h3>
+                    <p style="font-size: 0.82rem; color: var(--color-text-secondary); margin-top: 0.2rem;">
+                        Paste any HTML code to convert this topic into an interactive dark-themed page just like the ML/DL roadmap.
+                    </p>
+                </div>
+                <button type="button" class="modal-close" id="btn-close-topic-html-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="topic-html-topic-id">
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label class="form-label" for="topic-html-input-title">Interactive Tab Title *</label>
+                        <input type="text" id="topic-html-input-title" class="form-input" placeholder="e.g. 🗺️ Machine Learning Interactive Roadmap">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label class="form-label" for="topic-html-input-tag">Header Badge / Tag</label>
+                        <input type="text" id="topic-html-input-tag" class="form-input" placeholder="e.g. 10 Core Branches, Interactive Simulator">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="code-toolbar-row">
+                        <label class="form-label" for="topic-html-code" style="margin-bottom: 0;">HTML Code *</label>
+                        <div class="code-toolbar-actions">
+                            <button type="button" class="btn-code-helper" id="btn-helper-paste">📋 Paste Clipboard</button>
+                            <button type="button" class="btn-code-helper" id="btn-helper-roadmap-template">✨ Load Roadmap Template</button>
+                            <button type="button" class="btn-code-helper" id="btn-helper-preview">👁️ Live Preview</button>
+                        </div>
+                    </div>
+                    <textarea id="topic-html-code" class="html-editor-textarea" placeholder="<!DOCTYPE html>
+<html>
+<head>
+  <style>/* Your CSS styles, fonts, and dark mode colors */</style>
+</head>
+<body>
+  <!-- Your interactive components, math formulas, code blocks, or trees -->
+</body>
+</html>"></textarea>
+                </div>
+
+                <!-- Optional Preview Box -->
+                <div class="html-preview-frame-container" id="modal-html-preview-container" style="display: none;">
+                    <div class="html-preview-header">
+                        <span>Live Sandbox Preview</span>
+                        <button type="button" class="btn-code-helper" id="btn-close-modal-preview">Close Preview ✕</button>
+                    </div>
+                    <iframe class="html-preview-frame" id="modal-html-preview-frame" title="Live Preview"></iframe>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <div>
+                    <button type="button" class="btn btn-sm btn-danger-ghost" id="btn-remove-topic-html" style="display: none;">
+                        🗑️ Remove Custom HTML
+                    </button>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-topic-html-modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-topic-html">💾 Save & Render Interactive Page</button>
+                </div>
             </div>
         </div>
     </div>

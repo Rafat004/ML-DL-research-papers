@@ -208,6 +208,26 @@
                     <textarea id="home-topic-desc" class="form-input form-textarea-sm"
                         placeholder="Brief summary of what this topic explores..." rows="2"></textarea>
                 </div>
+
+                <details class="html-embed-details">
+                    <summary>🌐 Attach Custom HTML Page / Interactive App (Optional)</summary>
+                    <div style="margin-top: 0.75rem;">
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label class="form-label" for="home-topic-html-title">Interactive Tab Title</label>
+                                <input type="text" id="home-topic-html-title" class="form-input" placeholder="e.g. 🗺️ Interactive Roadmap">
+                            </div>
+                            <div class="form-group flex-1">
+                                <label class="form-label" for="home-topic-html-tag">Badge / Tag</label>
+                                <input type="text" id="home-topic-html-tag" class="form-input" placeholder="e.g. 10 Branches, Interactive Tree">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="home-topic-custom-html">HTML Code (complete HTML document or snippet)</label>
+                            <textarea id="home-topic-custom-html" class="html-editor-textarea" style="min-height: 140px;" placeholder="<!DOCTYPE html>... Paste your HTML code here"></textarea>
+                        </div>
+                    </div>
+                </details>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="btn-cancel-home-topic-modal">Cancel</button>

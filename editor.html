@@ -259,6 +259,37 @@
                     </div>
                 </div>
 
+                <!-- OPTIONAL: EMBED CUSTOM INTERACTIVE HTML APP -->
+                <div class="editor-section-card" id="editor-html-embed-card">
+                    <div class="editor-section-card-header">
+                        <div class="editor-section-badge-title">
+                            <span class="editor-section-badge" style="background: rgba(96, 165, 250, 0.2); color: var(--color-accent);">🌐</span>
+                            <span>Embed Custom Interactive HTML / Web App (Optional)</span>
+                        </div>
+                        <span class="editor-section-subtext">Interactive Sandbox</span>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.75rem;">
+                        Paste any HTML code (interactive tree, simulation, animated architecture diagram) to embed it as an interactive component inside this note.
+                    </p>
+                    <div class="code-toolbar-row">
+                        <label class="form-label" for="article-custom-html" style="margin-bottom: 0;">HTML Code</label>
+                        <div class="code-toolbar-actions">
+                            <button type="button" class="btn-code-helper" id="btn-note-helper-paste">📋 Paste Clipboard</button>
+                            <button type="button" class="btn-code-helper" id="btn-note-helper-template">✨ Load Roadmap Template</button>
+                            <button type="button" class="btn-code-helper" id="btn-note-helper-preview">👁️ Live Preview</button>
+                        </div>
+                    </div>
+                    <textarea id="article-custom-html" class="html-editor-textarea" style="min-height: 150px;" placeholder="<!DOCTYPE html>... Paste raw HTML code with CSS & JS here"></textarea>
+
+                    <div class="html-preview-frame-container" id="note-html-preview-container" style="display: none; margin-top: 0.75rem;">
+                        <div class="html-preview-header">
+                            <span>Live Note App Sandbox Preview</span>
+                            <button type="button" class="btn-code-helper" id="btn-close-note-preview">Close Preview ✕</button>
+                        </div>
+                        <iframe class="html-preview-frame" id="note-html-preview-frame" title="Note HTML Preview"></iframe>
+                    </div>
+                </div>
+
             </div>
         </section>
 
