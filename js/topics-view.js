@@ -97,7 +97,10 @@ function renderAllTopics(container, pageTitle, pageDesc) {
     topics.forEach((topic, idx) => {
         const topicArticles = articles.filter(a => a.topicId === topic.id || a.topicSlug === topic.slug);
         const count = topicArticles.length;
-        const countText = count === 1 ? '1 note' : `${count} notes`;
+        const isRoadmap = isRoadmapTopic(topic);
+        const countText = isRoadmap 
+            ? (count > 0 ? `${count} note${count === 1 ? '' : 's'} • 🗺️ Roadmap` : '🗺️ Interactive Roadmap') 
+            : (count === 1 ? '1 note' : `${count} notes`);
         const numStr = (idx + 1).toString().padStart(2, '0');
 
         html += `
@@ -149,6 +152,14 @@ function renderAllTopics(container, pageTitle, pageDesc) {
     });
 }
 
+function isRoadmapTopic(topic) {
+    if (!topic) return false;
+    const s = (topic.slug || '').toLowerCase();
+    const n = (topic.name || '').toLowerCase();
+    const t = (topic.tag || '').toLowerCase();
+    return s.includes('roadmap') || n.includes('roadmap') || t.includes('roadmap') || Boolean(topic.isRoadmap);
+}
+
 function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
     const topic = HubStore.getTopic(topicSlug);
     if (!topic) {
@@ -169,6 +180,7 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
     pageTitle.innerHTML = `<span style="font-size: 0.9em; margin-right: 8px;">${topic.icon || '🧠'}</span>${escapeHtml(topic.name)}`;
     pageDesc.textContent = topic.description || `Research notes, derivations, and code for ${topic.name}.`;
 
+    const isRoadmap = isRoadmapTopic(topic);
     const articles = HubStore.getArticles(topic.id);
 
     let html = `
@@ -176,6 +188,7 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
             <div class="topic-detail-tag">Category: <strong>${escapeHtml(topic.tag || 'Deep Learning')}</strong></div>
             <div class="topic-detail-actions">
                 <a href="topics.html" class="btn btn-sm btn-secondary">← All Topics</a>
+                ${isRoadmap ? `<a href="ml.html" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">🗺️ Fullscreen Roadmap ↗</a>` : ''}
                 <a href="editor.html?topic=${topic.id}" class="btn btn-sm btn-primary">+ Add Note in ${escapeHtml(topic.name)}</a>
                 <button type="button" class="btn btn-sm btn-danger-ghost" id="btn-delete-topic" title="Delete this topic and its notes">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -185,11 +198,65 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
         </div>
     `;
 
-    if (articles.length === 0) {
+    if (isRoadmap) {
         html += `
-            <div class="empty-state-card">
+            <div class="topic-tabs-bar" id="topic-tabs-bar">
+                <button type="button" class="topic-tab-btn active" data-tab="roadmap" id="tab-btn-roadmap">
+                    <span>🗺️ Interactive Roadmap</span>
+                </button>
+                <button type="button" class="topic-tab-btn" data-tab="notes" id="tab-btn-notes">
+                    <span>📝 Topic Notes</span>
+                    <span class="topic-tab-badge">${articles.length}</span>
+                </button>
+            </div>
+
+            <!-- TAB 1: INTERACTIVE ROADMAP (ml.html) -->
+            <div id="view-tab-roadmap" class="topic-tab-pane">
+                <div class="topic-roadmap-container">
+                    <div class="topic-roadmap-header">
+                        <div class="topic-roadmap-header-left">
+                            <span class="topic-roadmap-title">🗺️ Machine Learning Interactive Roadmap</span>
+                            <span class="topic-roadmap-tag">10 Core Branches</span>
+                        </div>
+                        <div class="topic-roadmap-header-actions">
+                            <button type="button" class="btn-roadmap-action" id="btn-iframe-expand">Expand All +</button>
+                            <button type="button" class="btn-roadmap-action" id="btn-iframe-collapse">Collapse All −</button>
+                            <a href="ml.html" class="btn-roadmap-action btn-roadmap-primary" target="_blank" rel="noopener">Open Fullscreen ↗</a>
+                        </div>
+                    </div>
+                    <iframe src="ml.html" class="topic-roadmap-iframe" id="topic-roadmap-iframe" title="Machine Learning Roadmap"></iframe>
+                </div>
+            </div>
+
+            <!-- TAB 2: TOPIC NOTES -->
+            <div id="view-tab-notes" class="topic-tab-pane" style="display: none;">
+                <div class="featured-roadmap-card" id="card-featured-roadmap">
+                    <div class="featured-roadmap-info">
+                        <div class="featured-roadmap-icon">🗺️</div>
+                        <div>
+                            <h3 class="featured-roadmap-title">Machine Learning Roadmap (Interactive Curriculum)</h3>
+                            <p class="featured-roadmap-desc">From programming fundamentals to classical ML, deep learning, generative AI, and MLOps with expandable mathematical formulations and code snippets.</p>
+                            <div class="featured-roadmap-badges">
+                                <span class="featured-roadmap-badge">10 Branches</span>
+                                <span class="featured-roadmap-badge">#roadmap</span>
+                                <span class="featured-roadmap-badge">#curriculum</span>
+                                <span class="featured-roadmap-badge">Interactive Tree</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="featured-roadmap-action">
+                        <span>View Interactive Tree →</span>
+                    </div>
+                </div>
+        `;
+    }
+
+    let notesHtml = '';
+    if (articles.length === 0) {
+        notesHtml = `
+            <div class="empty-state-card" style="margin-top: 1rem;">
                 <div class="empty-state-icon">📝</div>
-                <h3>No Notes in this Topic Yet</h3>
+                <h3>No Research Notes in this Topic Yet</h3>
                 <p>Start writing research notes, math formulations, diagrams, and code for <strong>${escapeHtml(topic.name)}</strong>.</p>
                 <div class="empty-actions">
                     <a href="editor.html?topic=${topic.id}" class="btn btn-primary">+ Write First Note</a>
@@ -197,7 +264,7 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
             </div>
         `;
     } else {
-        html += '<div class="posts-list">';
+        notesHtml = '<div class="posts-list">';
         articles.forEach(art => {
             let day = '17';
             let month = 'Oct';
@@ -215,7 +282,7 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
                 ? `<span class="mini-tag tag-diagram">📐 ${diagramCount} diagrams</span>` 
                 : (diagramCount === 1 ? `<span class="mini-tag tag-diagram">📐 diagram</span>` : '');
 
-            html += `
+            notesHtml += `
                 <a href="article.html?id=${art.id}" class="post-card">
                     <div class="post-date">
                         <span class="post-day">${day}</span>
@@ -234,10 +301,56 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
                 </a>
             `;
         });
-        html += '</div>';
+        notesHtml += '</div>';
+    }
+
+    if (isRoadmap) {
+        html += notesHtml + '</div>';
+    } else {
+        html += notesHtml;
     }
 
     container.innerHTML = html;
+
+    // Wire up tabs and roadmap interactions
+    if (isRoadmap) {
+        const tabRoadmap = document.getElementById('tab-btn-roadmap');
+        const tabNotes = document.getElementById('tab-btn-notes');
+        const viewRoadmap = document.getElementById('view-tab-roadmap');
+        const viewNotes = document.getElementById('view-tab-notes');
+        const featuredCard = document.getElementById('card-featured-roadmap');
+
+        const switchTab = (tab) => {
+            if (tab === 'roadmap') {
+                tabRoadmap?.classList.add('active');
+                tabNotes?.classList.remove('active');
+                if (viewRoadmap) viewRoadmap.style.display = 'block';
+                if (viewNotes) viewNotes.style.display = 'none';
+            } else {
+                tabNotes?.classList.add('active');
+                tabRoadmap?.classList.remove('active');
+                if (viewNotes) viewNotes.style.display = 'block';
+                if (viewRoadmap) viewRoadmap.style.display = 'none';
+            }
+        };
+
+        tabRoadmap?.addEventListener('click', () => switchTab('roadmap'));
+        tabNotes?.addEventListener('click', () => switchTab('notes'));
+        featuredCard?.addEventListener('click', () => switchTab('roadmap'));
+
+        // Communicating with iframe
+        const iframe = document.getElementById('topic-roadmap-iframe');
+        document.getElementById('btn-iframe-expand')?.addEventListener('click', () => {
+            try {
+                iframe?.contentWindow?.document.querySelectorAll('details.branch').forEach(d => d.open = true);
+            } catch (e) {}
+        });
+        document.getElementById('btn-iframe-collapse')?.addEventListener('click', () => {
+            try {
+                iframe?.contentWindow?.document.querySelectorAll('details.branch').forEach(d => d.open = false);
+            } catch (e) {}
+        });
+    }
 
     // Attach single topic delete action
     const btnDeleteTopic = document.getElementById('btn-delete-topic');

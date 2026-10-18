@@ -107,7 +107,10 @@ function renderTopicsGrid() {
     topics.forEach((topic, idx) => {
         const topicArticles = articles.filter(a => a.topicId === topic.id || a.topicSlug === topic.slug);
         const count = topicArticles.length;
-        const countText = count === 1 ? '1 note' : `${count} notes`;
+        const isRoadmap = typeof HubStore.isRoadmapTopic === 'function' ? HubStore.isRoadmapTopic(topic) : (topic.slug || '').includes('roadmap');
+        const countText = isRoadmap 
+            ? (count > 0 ? `${count} note${count === 1 ? '' : 's'} • 🗺️ Roadmap` : '🗺️ Interactive Roadmap') 
+            : (count === 1 ? '1 note' : `${count} notes`);
         const numStr = (idx + 1).toString().padStart(2, '0');
 
         html += `

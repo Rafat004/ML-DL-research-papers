@@ -9,7 +9,18 @@ const HubStore = (() => {
     const STORAGE_KEY_ARTICLES = 'dl_hub_articles_v1';
     const STORAGE_KEY_GITHUB = 'dl_hub_github_config_v1';
 
-    const INITIAL_TOPICS = [];
+    const INITIAL_TOPICS = [
+        {
+            id: 'top-mldl-roadmap',
+            name: 'ML/DL roadmap',
+            slug: 'mldl-roadmap',
+            icon: '🧠',
+            tag: 'roadmap',
+            description: 'Custom deep learning topic notes and code.',
+            createdAt: 1700000000000,
+            updatedAt: 1700000000000
+        }
+    ];
     const INITIAL_ARTICLES = [];
 
     let realtimeActive = false;
@@ -28,6 +39,15 @@ const HubStore = (() => {
             .replace(/\s+/g, '-')
             .replace(/[^\w\-]+/g, '')
             .replace(/\-\-+/g, '-');
+    }
+
+    /* ---- Helper: Detect if topic is Roadmap topic ---- */
+    function isRoadmapTopic(topic) {
+        if (!topic) return false;
+        const s = (topic.slug || '').toLowerCase();
+        const n = (topic.name || '').toLowerCase();
+        const t = (topic.tag || '').toLowerCase();
+        return s.includes('roadmap') || n.includes('roadmap') || t.includes('roadmap') || Boolean(topic.isRoadmap);
     }
 
     /* ---- Firebase Helper ---- */
@@ -54,18 +74,35 @@ const HubStore = (() => {
         try {
             const raw = localStorage.getItem(STORAGE_KEY_TOPICS);
             if (!raw) {
-                return INITIAL_TOPICS;
+                return [...INITIAL_TOPICS];
             }
-            return JSON.parse(raw);
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                if (parsed.length === 0) {
+                    return [...INITIAL_TOPICS];
+                }
+                return parsed;
+            }
+            return [...INITIAL_TOPICS];
         } catch (e) {
             console.error('Error reading topics from localStorage:', e);
-            return [];
+            return [...INITIAL_TOPICS];
         }
     }
 
     function getTopic(idOrSlug) {
+        if (!idOrSlug) return null;
         const topics = getTopics();
-        return topics.find(t => t.id === idOrSlug || t.slug === idOrSlug) || null;
+        let found = topics.find(t => t.id === idOrSlug || t.slug === idOrSlug);
+        if (!found) {
+            const clean = idOrSlug.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+            found = topics.find(t => (t.slug || '').toLowerCase().replace(/[^a-z0-9]/g, '') === clean || 
+                                     (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '') === clean);
+        }
+        if (!found && (idOrSlug.toLowerCase().includes('roadmap') || idOrSlug === 'top-mldl-roadmap')) {
+            found = INITIAL_TOPICS.find(t => t.slug === 'mldl-roadmap');
+        }
+        return found || null;
     }
 
     async function saveTopic(topicData) {
@@ -818,6 +855,7 @@ const HubStore = (() => {
         exportBackup,
         importBackup,
         renderMarkdown,
-        slugify
+        slugify,
+        isRoadmapTopic
     };
 })();

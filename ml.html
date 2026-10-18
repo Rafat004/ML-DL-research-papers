@@ -1,0 +1,844 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Machine Learning Roadmap</title>
+
+  <!-- KaTeX: mathematical equations -->
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+
+  <!-- Prism.js: code syntax highlighting -->
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism-tomorrow.min.css">
+
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2e;
+      --panel-hover: #19243c;
+      --text: #e5ecf7;
+      --muted: #9caec8;
+      --border: #283752;
+      --blue: #60a5fa;
+      --purple: #c4b5fd;
+      --green: #6ee7b7;
+      --orange: #fdba74;
+      --pink: #f9a8d4;
+      --cyan: #67e8f9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 36px 18px;
+      background:
+        radial-gradient(ellipse at top, #172447 0%, transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    .roadmap {
+      max-width: 1050px;
+      margin: auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .eyebrow {
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0;
+      font-size: clamp(32px, 6vw, 56px);
+      line-height: 1.15;
+      letter-spacing: -1.5px;
+      background: linear-gradient(90deg, #60a5fa, #c4b5fd, #6ee7b7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    header p {
+      color: var(--muted);
+      margin: 12px auto;
+      max-width: 650px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 22px;
+    }
+
+    .tag {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      background: #10182a;
+    }
+
+    .tree {
+      position: relative;
+      border-left: 2px solid #344765;
+      margin-left: 12px;
+      padding-left: 24px;
+    }
+
+    .branch {
+      position: relative;
+      margin: 0 0 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(18, 26, 46, 0.94);
+      overflow: hidden;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .branch::before {
+      content: "";
+      position: absolute;
+      left: -26px;
+      top: 27px;
+      width: 24px;
+      border-top: 2px solid #344765;
+    }
+
+    .branch:hover {
+      border-color: #50678b;
+      background: var(--panel-hover);
+    }
+
+    .branch > summary {
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 17px 20px;
+      font-weight: 750;
+      font-size: 16px;
+    }
+
+    .branch > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .branch > summary::after {
+      content: "+";
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 22px;
+      font-weight: 400;
+    }
+
+    .branch[open] > summary::after {
+      content: "−";
+    }
+
+    .number {
+      display: grid;
+      place-items: center;
+      min-width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #1d3150;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .branch:nth-child(3n + 1) .number {
+      color: var(--blue);
+      background: #172d4b;
+    }
+
+    .branch:nth-child(3n + 2) .number {
+      color: var(--purple);
+      background: #30244b;
+    }
+
+    .branch:nth-child(3n) .number {
+      color: var(--green);
+      background: #163b37;
+    }
+
+    .content {
+      padding: 0 20px 20px 68px;
+      color: #cbd7e8;
+    }
+
+    .content h3 {
+      color: var(--cyan);
+      font-size: 14px;
+      margin: 20px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .content ul {
+      margin: 6px 0 12px;
+      padding-left: 22px;
+    }
+
+    .content li {
+      padding: 3px 0;
+    }
+
+    .content li::marker {
+      color: #607da7;
+    }
+
+    .content ul ul {
+      margin-top: 4px;
+      margin-bottom: 6px;
+    }
+
+    .content strong {
+      color: #f1f5ff;
+    }
+
+    .math {
+      overflow-x: auto;
+      margin: 12px 0;
+      padding: 16px;
+      border: 1px solid #2a3b58;
+      border-radius: 10px;
+      background: #0b1222;
+      text-align: center;
+    }
+
+    .note {
+      border-left: 3px solid var(--orange);
+      background: #211d1b;
+      padding: 12px 15px;
+      margin-top: 12px;
+      border-radius: 0 8px 8px 0;
+      color: #e8d6c3;
+      font-size: 14px;
+    }
+
+    .code-example {
+      margin-top: 12px;
+      border-radius: 10px;
+      overflow: auto;
+      font-size: 13px;
+    }
+
+    .path {
+      margin: 28px 0;
+      padding: 22px;
+      border: 1px solid #34506e;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #14233b, #17182e);
+    }
+
+    .path h2 {
+      color: var(--green);
+      margin-top: 0;
+      font-size: 18px;
+    }
+
+    .path-flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .step {
+      background: #202e47;
+      border: 1px solid #344967;
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-size: 13px;
+    }
+
+    .arrow {
+      color: var(--cyan);
+      font-weight: bold;
+    }
+
+    footer {
+      text-align: center;
+      color: #7f92ad;
+      font-size: 12px;
+      margin-top: 30px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 22px 10px;
+      }
+
+      .tree {
+        margin-left: 6px;
+        padding-left: 17px;
+      }
+
+      .branch::before {
+        left: -19px;
+        width: 17px;
+      }
+
+      .branch > summary {
+        padding: 13px;
+        font-size: 14px;
+      }
+
+      .content {
+        padding: 0 14px 17px;
+      }
+
+      .number {
+        min-width: 32px;
+        height: 32px;
+      }
+    }
+
+    /* Knowledge Hub Navigation Topbar */
+    .roadmap-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1050px;
+      margin: 0 auto 24px;
+      padding: 10px 16px;
+      background: rgba(18, 26, 46, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    body.is-embedded {
+      padding: 16px 14px;
+    }
+
+    body.is-embedded .roadmap-topbar {
+      display: none;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .topbar-back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: rgba(96, 165, 250, 0.12);
+      border: 1px solid rgba(96, 165, 250, 0.25);
+      transition: all 0.2s ease;
+    }
+
+    .topbar-back-btn:hover {
+      background: rgba(96, 165, 250, 0.22);
+      color: #93c5fd;
+    }
+
+    .topbar-badge {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .topbar-badge .hub-name {
+      color: #e5ecf7;
+      font-weight: 700;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-topbar {
+      background: #19243c;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-topbar:hover {
+      background: #233454;
+      border-color: #50678b;
+      color: #60a5fa;
+    }
+  </style>
+</head>
+
+<body>
+<nav class="roadmap-topbar">
+  <div class="topbar-left">
+    <a href="topics.html?topic=mldl-roadmap" class="topbar-back-btn" id="link-back-topic">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+      <span>Back to ML/DL Roadmap Topic</span>
+    </a>
+    <div class="topbar-badge">
+      <span class="hub-name">◈ DL Knowledge Hub</span>
+      <span>/</span>
+      <span>Machine Learning Roadmap</span>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button type="button" class="btn-topbar" id="btn-expand-all">Expand All +</button>
+    <button type="button" class="btn-topbar" id="btn-collapse-all">Collapse All −</button>
+    <a href="index.html" class="btn-topbar">Hub Home ↗</a>
+  </div>
+</nav>
+
+<main class="roadmap">
+
+  <header>
+    <div class="eyebrow">Your learning journey</div>
+    <h1>Machine Learning Roadmap</h1>
+    <p>
+      From programming fundamentals to classical ML, deep learning,
+      generative AI, and production deployment.
+    </p>
+    <div class="legend">
+      <span class="tag">10 learning branches</span>
+      <span class="tag">Expandable tree</span>
+      <span class="tag">Math + Code</span>
+      <span class="tag">Beginner → Advanced</span>
+    </div>
+  </header>
+
+  <section class="tree">
+
+    <!-- 0. PROGRAMMING -->
+    <details class="branch" open>
+      <summary><span class="number">00</span> Programming &amp; Tools</summary>
+      <div class="content">
+        <ul>
+          <li><strong>Python</strong>
+            <ul><li>Variables, data types, loops, functions, OOP, modules</li></ul>
+          </li>
+          <li><strong>NumPy</strong>
+            <ul>
+              <li>Arrays, vectors, matrices</li>
+              <li>Broadcasting and vectorization</li>
+              <li>Indexing, slicing, array operations</li>
+            </ul>
+          </li>
+          <li><strong>pandas</strong>
+            <ul><li>DataFrames, filtering, grouping, joins, missing values</li></ul>
+          </li>
+          <li><strong>Visualization:</strong> Matplotlib, Seaborn</li>
+          <li><strong>Tools:</strong> Jupyter Notebook, Git, GitHub, scikit-learn</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- 1. MATHEMATICS -->
+    <details class="branch">
+      <summary><span class="number">01</span> Mathematics for ML</summary>
+      <div class="content">
+        <h3>Linear Algebra</h3>
+        <ul>
+          <li>Vectors, matrices, dot product</li>
+          <li>Matrix multiplication and transformations</li>
+          <li>Eigenvalues, eigenvectors, Singular Value Decomposition (SVD)</li>
+        </ul>
+
+        <h3>Calculus</h3>
+        <ul>
+          <li>Derivatives and partial derivatives</li>
+          <li>Gradients and chain rule</li>
+        </ul>
+        <div class="math">$$
+          \nabla_\theta J(\theta)
+        $$</div>
+
+        <h3>Probability &amp; Statistics</h3>
+        <ul>
+          <li>Mean, variance, standard deviation</li>
+          <li>Conditional probability and Bayes' theorem</li>
+          <li>Gaussian distribution</li>
+          <li>Covariance and correlation</li>
+          <li>Maximum likelihood estimation (MLE)</li>
+        </ul>
+        <div class="math">$$
+          p(x)=\frac{1}{\sqrt{2\pi\sigma^2}}
+          e^{-\frac{(x-\mu)^2}{2\sigma^2}}
+        $$</div>
+
+        <h3>Optimization</h3>
+        <ul>
+          <li>Objective functions, minima and convergence</li>
+          <li>Learning rate and optimization landscape</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- 2. DATA PREPARATION -->
+    <details class="branch">
+      <summary><span class="number">02</span> Data Preparation</summary>
+      <div class="content">
+        <ul>
+          <li>Data collection, cleaning and validation</li>
+          <li>Exploratory Data Analysis (EDA)</li>
+          <li><strong>Feature engineering</strong>
+            <ul>
+              <li>Creating and transforming features</li>
+              <li>Polynomial features</li>
+              <li>Feature selection</li>
+            </ul>
+          </li>
+          <li>Categorical encoding: one-hot, ordinal</li>
+          <li>Missing-value imputation</li>
+          <li><strong>Feature scaling</strong>
+            <ul>
+              <li>Standardization (Z-score)</li>
+              <li>Min-Max normalization</li>
+            </ul>
+          </li>
+          <li>Train / validation / test split</li>
+          <li>Data leakage prevention</li>
+        </ul>
+
+        <div class="math">$$
+          z=\frac{x-\mu}{\sigma}
+          \qquad
+          x'=\frac{x-x_{\min}}{x_{\max}-x_{\min}}
+        $$</div>
+      </div>
+    </details>
+
+    <!-- 3. CORE ML -->
+    <details class="branch" open>
+      <summary><span class="number">03</span> Core Machine Learning</summary>
+      <div class="content">
+
+        <h3>A. Supervised Learning</h3>
+        <ul>
+          <li><strong>Regression — predict numbers</strong>
+            <ul>
+              <li>Linear regression: simple and multiple</li>
+              <li>Polynomial regression</li>
+              <li>Ridge and Lasso regression</li>
+              <li>Evaluation: MAE, MSE, RMSE, R²</li>
+            </ul>
+          </li>
+          <li><strong>Classification — predict classes</strong>
+            <ul>
+              <li>Binary, multiclass and multilabel classification</li>
+              <li>Logistic regression</li>
+              <li>Decision boundaries</li>
+              <li>Confusion matrix</li>
+              <li>Accuracy, precision, recall, F1-score, ROC-AUC</li>
+            </ul>
+          </li>
+        </ul>
+
+        <div class="math">$$
+          \text{MSE}=\frac{1}{m}\sum_{i=1}^{m}
+          (y_i-\hat y_i)^2
+        $$</div>
+
+        <h3>B. Unsupervised Learning</h3>
+        <ul>
+          <li><strong>Clustering:</strong> K-Means, hierarchical, DBSCAN, Gaussian Mixture Models</li>
+          <li><strong>Dimensionality reduction:</strong> PCA, SVD, t-SNE, UMAP</li>
+          <li><strong>Anomaly detection</strong></li>
+        </ul>
+
+        <h3>C. Reinforcement Learning</h3>
+        <ul>
+          <li>Agent and environment</li>
+          <li>States, actions and rewards</li>
+          <li>Markov Decision Process (MDP)</li>
+          <li>Policies and value functions</li>
+          <li>Q-learning and policy gradients</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- 4. HOW MODELS LEARN -->
+    <details class="branch">
+      <summary><span class="number">04</span> How Models Learn</summary>
+      <div class="content">
+        <ul>
+          <li>Model parameters and hyperparameters</li>
+          <li><strong>Cost / loss functions</strong>
+            <ul>
+              <li>MSE and MAE</li>
+              <li>Binary cross-entropy</li>
+              <li>Categorical cross-entropy</li>
+            </ul>
+          </li>
+          <li><strong>Optimization algorithms</strong>
+            <ul>
+              <li>Batch Gradient Descent</li>
+              <li>Stochastic Gradient Descent (SGD)</li>
+              <li>Mini-batch Gradient Descent</li>
+              <li>Momentum and RMSProp</li>
+              <li>Adam optimizer</li>
+            </ul>
+          </li>
+          <li><strong>Regularization:</strong> L1, L2, early stopping</li>
+          <li><strong>Model evaluation and selection</strong>
+            <ul>
+              <li>Cross-validation</li>
+              <li>Hyperparameter tuning</li>
+              <li>Underfitting and overfitting</li>
+              <li>Bias-variance trade-off</li>
+              <li>Learning curves and error analysis</li>
+            </ul>
+          </li>
+        </ul>
+
+        <div class="math">$$
+          \theta_{t+1}=\theta_t-\alpha\nabla_\theta J(\theta_t)
+        $$</div>
+      </div>
+    </details>
+
+    <!-- 5. TREE ALGORITHMS -->
+    <details class="branch">
+      <summary><span class="number">05</span> Tree-Based Algorithms</summary>
+      <div class="content">
+        <ul>
+          <li><strong>Decision trees</strong>
+            <ul>
+              <li>Classification trees</li>
+              <li>Entropy and Gini impurity</li>
+              <li>Information gain and gain ratio</li>
+              <li>Regression trees and squared-error reduction</li>
+            </ul>
+          </li>
+          <li><strong>Ensemble learning</strong>
+            <ul>
+              <li>Bagging → Random Forest</li>
+              <li>Boosting → AdaBoost</li>
+              <li>Gradient Boosting</li>
+              <li>XGBoost</li>
+              <li>LightGBM and CatBoost</li>
+            </ul>
+          </li>
+        </ul>
+
+        <div class="math">$$
+          H(S)=-\sum_i p_i\log_2(p_i)
+        $$</div>
+      </div>
+    </details>
+
+    <!-- 6. CLASSICAL ALGORITHMS -->
+    <details class="branch">
+      <summary><span class="number">06</span> Other Classical Algorithms</summary>
+      <div class="content">
+        <ul>
+          <li>K-Nearest Neighbors (KNN)</li>
+          <li>Naive Bayes</li>
+          <li>Gaussian Naive Bayes</li>
+          <li>Support Vector Machines (SVM)</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- 7. DEEP LEARNING -->
+    <details class="branch" open>
+      <summary><span class="number">07</span> Deep Learning</summary>
+      <div class="content">
+        <h3>Neural Network Fundamentals</h3>
+        <ul>
+          <li>Neurons, weights and biases</li>
+          <li>Input, hidden and output layers</li>
+          <li>Forward propagation</li>
+          <li><strong>Activation functions:</strong> ReLU, sigmoid, tanh, softmax</li>
+        </ul>
+
+        <div class="math">$$
+          a=\sigma(Wx+b)
+        $$</div>
+
+        <h3>Neural Network Training</h3>
+        <ul>
+          <li>Loss calculation</li>
+          <li>Backpropagation</li>
+          <li>Gradient calculation</li>
+          <li>SGD / Adam parameter updates</li>
+        </ul>
+
+        <h3>Training Techniques</h3>
+        <ul>
+          <li>Weight initialization</li>
+          <li>Dropout</li>
+          <li>Batch normalization and layer normalization</li>
+          <li>Learning-rate schedules</li>
+        </ul>
+
+        <h3>Architectures</h3>
+        <ul>
+          <li>MLP — fully connected networks</li>
+          <li>CNNs — image processing</li>
+          <li>RNNs / LSTMs — sequential data</li>
+          <li>Transformers — attention mechanisms</li>
+          <li>Autoencoders — representation learning</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- 8. TRANSFER LEARNING -->
+    <details class="branch">
+      <summary><span class="number">08</span> Transfer Learning</summary>
+      <div class="content">
+        <ul>
+          <li>Pretrained models</li>
+          <li>Feature extraction</li>
+          <li>Fine-tuning</li>
+          <li>Domain adaptation</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- 9. SPECIALIZATIONS -->
+    <details class="branch">
+      <summary><span class="number">09</span> Specializations</summary>
+      <div class="content">
+        <ul>
+          <li><strong>NLP and Large Language Models (LLMs)</strong>
+            <ul>
+              <li>Tokenization and embeddings</li>
+              <li>Attention and Transformers</li>
+              <li>Fine-tuning and Retrieval-Augmented Generation (RAG)</li>
+            </ul>
+          </li>
+          <li><strong>Computer Vision</strong>
+            <ul>
+              <li>Image classification</li>
+              <li>Object detection</li>
+              <li>Image segmentation</li>
+            </ul>
+          </li>
+          <li>Time-series forecasting</li>
+          <li>Reinforcement learning and deep RL</li>
+          <li><strong>Generative AI:</strong> VAE, GAN, diffusion models</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- 10. MLOPS -->
+    <details class="branch">
+      <summary><span class="number">10</span> ML Engineering &amp; MLOps</summary>
+      <div class="content">
+        <ul>
+          <li>Data and model pipelines</li>
+          <li>Experiment tracking</li>
+          <li>Model serialization and versioning</li>
+          <li>APIs and deployment</li>
+          <li>Monitoring, performance and data drift</li>
+          <li>Retraining and model lifecycle management</li>
+        </ul>
+      </div>
+    </details>
+
+  </section>
+
+  <!-- RECOMMENDED LEARNING ORDER -->
+  <section class="path">
+    <h2>Recommended Learning Path</h2>
+    <div class="path-flow">
+      <span class="step">Programming</span>
+      <span class="arrow">→</span>
+      <span class="step">Mathematics</span>
+      <span class="arrow">→</span>
+      <span class="step">Data Preparation</span>
+      <span class="arrow">→</span>
+      <span class="step">Supervised ML</span>
+      <span class="arrow">→</span>
+      <span class="step">Optimization</span>
+      <span class="arrow">→</span>
+      <span class="step">Trees &amp; Ensembles</span>
+      <span class="arrow">→</span>
+      <span class="step">Deep Learning</span>
+      <span class="arrow">→</span>
+      <span class="step">Specialization</span>
+      <span class="arrow">→</span>
+      <span class="step">MLOps</span>
+    </div>
+    <div class="note">
+      Tip: Build small projects after each major section.
+      Learn unsupervised learning after the supervised fundamentals;
+      study reinforcement learning when you are ready for its separate branch.
+    </div>
+  </section>
+
+  <footer>
+    MACHINE LEARNING • CONCEPTS • ALGORITHMS • DEEP LEARNING • DEPLOYMENT
+  </footer>
+</main>
+
+<!-- KaTeX auto-render -->
+<script defer
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+<script defer
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '\\(', right: '\\)', display: false}
+    ],
+    throwOnError: false
+  });"></script>
+
+<!-- Prism.js -->
+<script defer
+  src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.min.js"></script>
+<script defer
+  src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/prism-python.min.js"></script>
+
+<script>
+  if (window.self !== window.top) {
+    document.body.classList.add('is-embedded');
+  }
+  document.getElementById('btn-expand-all')?.addEventListener('click', () => {
+    document.querySelectorAll('details.branch').forEach(d => d.open = true);
+  });
+  document.getElementById('btn-collapse-all')?.addEventListener('click', () => {
+    document.querySelectorAll('details.branch').forEach(d => d.open = false);
+  });
+</script>
+
+</body>
+</html>
