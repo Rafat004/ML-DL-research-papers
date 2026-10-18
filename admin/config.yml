@@ -16,8 +16,13 @@ collections:
       - { label: "Title", name: "title", widget: "string" }
       - { label: "Publish Date", name: "date", widget: "date", default: "{{now}}" }
       - { label: "Topic Category", name: "topic", widget: "string" }
-      - { label: "Tags", name: "tags", widget: "list", default: ["math", "pytorch"] }
-      - { label: "Short Excerpt", name: "excerpt", widget: "text", required: false }
-      - { label: "Architecture Diagram", name: "diagram", widget: "image", required: false }
-      - { label: "Diagram Caption", name: "diagram_caption", widget: "string", required: false }
+      - { label: "Description 1 (Primary Excerpt)", name: "excerpt", widget: "text", required: false }
+      - { label: "Architecture Diagram 1", name: "diagram", widget: "image", required: false }
+      - { label: "Diagram 1 Caption", name: "diagram_caption", widget: "string", required: false }
+      - { label: "Description 2", name: "description_2", widget: "text", required: false }
+      - { label: "Architecture Diagram 2", name: "diagram_2", widget: "image", required: false }
+      - { label: "Diagram 2 Caption", name: "diagram_caption_2", widget: "string", required: false }
+      - { label: "Description 3", name: "description_3", widget: "text", required: false }
+      - { label: "Architecture Diagram 3", name: "diagram_3", widget: "image", required: false }
+      - { label: "Diagram 3 Caption", name: "diagram_caption_3", widget: "string", required: false }
       - { label: "Content Body", name: "body", widget: "markdown" }

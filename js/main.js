@@ -200,8 +200,10 @@ function renderRecentPosts() {
             } catch (e) {}
         }
 
-        const tagsHtml = (art.tags || []).slice(0, 4).map(t => `<span class="mini-tag">#${escapeHtml(t)}</span>`).join('');
-        const diagramBadge = art.diagram ? `<span class="mini-tag tag-diagram">📐 diagram</span>` : '';
+        const diagramCount = art.sections ? art.sections.filter(s => s.diagram).length : (art.diagram ? 1 : 0);
+        const diagramBadge = diagramCount > 1 
+            ? `<span class="mini-tag tag-diagram">📐 ${diagramCount} diagrams</span>` 
+            : (diagramCount === 1 ? `<span class="mini-tag tag-diagram">📐 diagram</span>` : '');
 
         html += `
             <a href="article.html?id=${art.id}" class="post-card" id="post-${art.id}">
@@ -368,7 +370,8 @@ function performSearch(query, resultsContainer) {
     const topics = HubStore.getTopics();
 
     const matchedArticles = articles.filter(art => {
-        const text = `${art.title} ${art.topicName} ${art.excerpt} ${(art.tags || []).join(' ')} ${art.content || ''}`.toLowerCase();
+        const sectionTexts = (art.sections || []).map(s => `${s.description || ''} ${s.diagramCaption || ''}`).join(' ');
+        const text = `${art.title} ${art.topicName} ${art.excerpt} ${sectionTexts} ${(art.tags || []).join(' ')} ${art.content || ''}`.toLowerCase();
         return text.includes(query);
     });
 

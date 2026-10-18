@@ -20,15 +20,9 @@ function initEditor() {
     const docTitle = document.getElementById('editor-doc-title');
     const statusText = document.getElementById('status-text');
 
-    // Diagram elements
-    const fileInput = document.getElementById('diagram-file-input');
-    const fileDropArea = document.getElementById('file-drop-area');
-    const urlInput = document.getElementById('diagram-url-input');
-    const captionInput = document.getElementById('diagram-caption-input');
-    const previewCard = document.getElementById('diagram-preview-card');
-    const previewImg = document.getElementById('diagram-preview-img');
-    const previewCaption = document.getElementById('diagram-preview-caption');
-    const btnRemoveDiagram = document.getElementById('btn-remove-diagram');
+    // Multi-slot Description & Architecture Diagram state (3 slots)
+    const slotCount = 3;
+    const currentDiagrams = ['', '', ''];
 
     // Action buttons
     const btnSaveLocal = document.getElementById('btn-save-local');
@@ -51,7 +45,6 @@ function initEditor() {
 
     // State
     let currentArticleId = null;
-    let currentDiagramData = '';
     let isDirty = false;
 
     // Set default date to today
@@ -109,15 +102,40 @@ function initEditor() {
         renderTopicOptions(article.topicId);
         tagsInput.value = (article.tags || []).join(', ');
         dateInput.value = article.date || new Date().toISOString().split('T')[0];
-        excerptInput.value = article.excerpt || '';
         mdInput.value = article.content || '';
 
-        if (article.diagram) {
-            currentDiagramData = article.diagram;
-            captionInput.value = article.diagramCaption || '';
-            previewImg.src = article.diagram;
-            previewCaption.textContent = article.diagramCaption || 'Figure: Architecture diagram';
-            previewCard.style.display = 'flex';
+        // Normalize sections from article (at least 1 or up to 3)
+        const sections = Array.isArray(article.sections) && article.sections.length > 0
+            ? article.sections
+            : [{ description: article.excerpt || '', diagram: article.diagram || '', diagramCaption: article.diagramCaption || '' }];
+
+        for (let i = 1; i <= slotCount; i++) {
+            const sec = sections[i - 1];
+            const excerptInput = document.getElementById(`article-excerpt-${i}`);
+            const urlInput = document.getElementById(`diagram-url-input-${i}`);
+            const captionInput = document.getElementById(`diagram-caption-input-${i}`);
+            const previewCard = document.getElementById(`diagram-preview-card-${i}`);
+
+            if (sec) {
+                if (excerptInput) excerptInput.value = sec.description || '';
+                if (captionInput) captionInput.value = sec.diagramCaption || '';
+                if (sec.diagram) {
+                    currentDiagrams[i - 1] = sec.diagram;
+                    if (urlInput && (sec.diagram.startsWith('http://') || sec.diagram.startsWith('https://'))) {
+                        urlInput.value = sec.diagram;
+                    }
+                    displayDiagramPreview(i, sec.diagram);
+                } else {
+                    currentDiagrams[i - 1] = '';
+                    if (previewCard) previewCard.style.display = 'none';
+                }
+            } else {
+                if (excerptInput) excerptInput.value = '';
+                if (captionInput) captionInput.value = '';
+                if (urlInput) urlInput.value = '';
+                currentDiagrams[i - 1] = '';
+                if (previewCard) previewCard.style.display = 'none';
+            }
         }
 
         updateLivePreview();
@@ -129,9 +147,19 @@ function initEditor() {
     function updateLivePreview() {
         const raw = mdInput.value;
         const title = titleInput.value.trim();
-        const excerpt = excerptInput.value.trim();
 
-        if (!raw.trim() && !title && !excerpt) {
+        // Collect all non-empty slots
+        const activeSlots = [];
+        for (let i = 1; i <= slotCount; i++) {
+            const desc = document.getElementById(`article-excerpt-${i}`)?.value.trim() || '';
+            const diag = currentDiagrams[i - 1] || '';
+            const cap = document.getElementById(`diagram-caption-input-${i}`)?.value.trim() || `Figure ${i}: Architecture diagram`;
+            if (desc || diag) {
+                activeSlots.push({ slot: i, desc, diag, cap });
+            }
+        }
+
+        if (!raw.trim() && !title && activeSlots.length === 0) {
             previewContent.innerHTML = '<p class="preview-placeholder">Live preview will render here as you type...</p>';
             return;
         }
@@ -140,17 +168,37 @@ function initEditor() {
         if (title) {
             headerHtml += `<h1 class="preview-title">${escapeHtml(title)}</h1>`;
         }
-        if (excerpt) {
-            headerHtml += `
-                <div class="article-abstract-card">
-                    <div class="abstract-label">Description:</div>
-                    <p class="abstract-text">${escapeHtml(excerpt)}</p>
-                </div>
-            `;
+
+        let sectionsHtml = '';
+        if (activeSlots.length > 0) {
+            activeSlots.forEach(item => {
+                if (item.desc) {
+                    const label = activeSlots.length > 1 ? `Description ${item.slot}:` : 'Description:';
+                    sectionsHtml += `
+                        <div class="article-abstract-card">
+                            <div class="abstract-label">${label}</div>
+                            <p class="abstract-text">${escapeHtml(item.desc)}</p>
+                        </div>
+                    `;
+                }
+                if (item.diag) {
+                    sectionsHtml += `
+                        <section class="article-diagram-wrapper" style="margin: 1.25rem 0 1.75rem;">
+                            <div class="diagram-display-card">
+                                <div class="diagram-tag">📐 Architecture Diagram ${activeSlots.length > 1 ? `#${item.slot}` : ''}</div>
+                                <div class="diagram-image-container">
+                                    <img src="${item.diag}" alt="Architecture Diagram ${item.slot}" style="max-height: 380px; max-width: 100%; border-radius: 6px;">
+                                </div>
+                                <p class="diagram-caption">${escapeHtml(item.cap)}</p>
+                            </div>
+                        </section>
+                    `;
+                }
+            });
         }
 
         const html = HubStore.renderMarkdown(raw);
-        previewContent.innerHTML = headerHtml + html;
+        previewContent.innerHTML = headerHtml + sectionsHtml + html;
 
         // Render KaTeX math formulas
         if (typeof renderMathInElement === 'function') {
@@ -197,11 +245,6 @@ function initEditor() {
 
     titleInput.addEventListener('input', () => {
         docTitle.textContent = titleInput.value.trim() || 'New Research Note';
-        scheduleLivePreview();
-        markDirty();
-    });
-
-    excerptInput.addEventListener('input', () => {
         scheduleLivePreview();
         markDirty();
     });
@@ -391,65 +434,93 @@ if __name__ == "__main__":
         });
     });
 
-    /* ---- Diagram File Upload & Drag and Drop ---- */
-    if (fileDropArea) {
-        fileDropArea.addEventListener('click', () => fileInput.click());
-
-        fileDropArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            fileDropArea.classList.add('dragover');
-        });
-
-        fileDropArea.addEventListener('dragleave', () => {
-            fileDropArea.classList.remove('dragover');
-        });
-
-        fileDropArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            fileDropArea.classList.remove('dragover');
-            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                handleDiagramFile(e.dataTransfer.files[0]);
-            }
-        });
+    /* ---- Diagram File Upload & Drag and Drop for All 3 Slots ---- */
+    for (let slot = 1; slot <= slotCount; slot++) {
+        setupSlotHandlers(slot);
     }
 
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files && e.target.files[0]) {
-                handleDiagramFile(e.target.files[0]);
-            }
-        });
-    }
+    function setupSlotHandlers(slot) {
+        const fileInput = document.getElementById(`diagram-file-input-${slot}`);
+        const fileDropArea = document.getElementById(`file-drop-area-${slot}`);
+        const urlInput = document.getElementById(`diagram-url-input-${slot}`);
+        const captionInput = document.getElementById(`diagram-caption-input-${slot}`);
+        const previewCard = document.getElementById(`diagram-preview-card-${slot}`);
+        const previewCaption = document.getElementById(`diagram-preview-caption-${slot}`);
+        const btnRemove = document.getElementById(`btn-remove-diagram-${slot}`);
+        const excerptInput = document.getElementById(`article-excerpt-${slot}`);
 
-    if (urlInput) {
-        urlInput.addEventListener('change', () => {
-            const url = urlInput.value.trim();
-            if (url) {
-                currentDiagramData = url;
-                displayDiagramPreview(url);
+        if (excerptInput) {
+            excerptInput.addEventListener('input', () => {
+                scheduleLivePreview();
                 markDirty();
-            }
-        });
+            });
+        }
+
+        if (fileDropArea && fileInput) {
+            fileDropArea.addEventListener('click', () => fileInput.click());
+
+            fileDropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileDropArea.classList.add('dragover');
+            });
+
+            fileDropArea.addEventListener('dragleave', () => {
+                fileDropArea.classList.remove('dragover');
+            });
+
+            fileDropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileDropArea.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleDiagramFile(slot, e.dataTransfer.files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    handleDiagramFile(slot, e.target.files[0]);
+                }
+            });
+        }
+
+        if (urlInput) {
+            urlInput.addEventListener('input', () => {
+                const url = urlInput.value.trim();
+                currentDiagrams[slot - 1] = url;
+                if (url) {
+                    displayDiagramPreview(slot, url);
+                } else {
+                    if (previewCard) previewCard.style.display = 'none';
+                }
+                scheduleLivePreview();
+                markDirty();
+            });
+        }
+
+        if (captionInput) {
+            captionInput.addEventListener('input', () => {
+                if (previewCaption) {
+                    previewCaption.textContent = captionInput.value.trim() || `Figure ${slot}: Architecture diagram`;
+                }
+                scheduleLivePreview();
+                markDirty();
+            });
+        }
+
+        if (btnRemove) {
+            btnRemove.addEventListener('click', () => {
+                currentDiagrams[slot - 1] = '';
+                if (urlInput) urlInput.value = '';
+                if (fileInput) fileInput.value = '';
+                if (previewCard) previewCard.style.display = 'none';
+                scheduleLivePreview();
+                markDirty();
+                showToast(`Diagram ${slot} removed`, 'info');
+            });
+        }
     }
 
-    if (captionInput) {
-        captionInput.addEventListener('input', () => {
-            previewCaption.textContent = captionInput.value.trim() || 'Figure: Architecture diagram';
-            markDirty();
-        });
-    }
-
-    if (btnRemoveDiagram) {
-        btnRemoveDiagram.addEventListener('click', () => {
-            currentDiagramData = '';
-            urlInput.value = '';
-            previewCard.style.display = 'none';
-            markDirty();
-            showToast('Diagram removed', 'info');
-        });
-    }
-
-    function handleDiagramFile(file) {
+    function handleDiagramFile(slot, file) {
         if (!file.type.startsWith('image/')) {
             showToast('Please upload an image file (PNG, JPG, SVG, WebP)', 'error');
             return;
@@ -457,18 +528,26 @@ if __name__ == "__main__":
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            currentDiagramData = e.target.result;
-            displayDiagramPreview(currentDiagramData);
+            currentDiagrams[slot - 1] = e.target.result;
+            displayDiagramPreview(slot, currentDiagrams[slot - 1]);
+            scheduleLivePreview();
             markDirty();
-            showToast('Diagram image loaded successfully', 'success');
+            showToast(`Diagram ${slot} image loaded successfully`, 'success');
         };
         reader.readAsDataURL(file);
     }
 
-    function displayDiagramPreview(src) {
-        previewImg.src = src;
-        previewCaption.textContent = captionInput.value.trim() || 'Figure 1: Architecture diagram';
-        previewCard.style.display = 'flex';
+    function displayDiagramPreview(slot, src) {
+        const previewCard = document.getElementById(`diagram-preview-card-${slot}`);
+        const previewImg = document.getElementById(`diagram-preview-img-${slot}`);
+        const previewCaption = document.getElementById(`diagram-preview-caption-${slot}`);
+        const captionInput = document.getElementById(`diagram-caption-input-${slot}`);
+
+        if (previewImg) previewImg.src = src;
+        if (previewCaption && captionInput) {
+            previewCaption.textContent = captionInput.value.trim() || `Figure ${slot}: Architecture diagram`;
+        }
+        if (previewCard) previewCard.style.display = 'flex';
     }
 
     /* ---- Save Article Locally ---- */
@@ -486,6 +565,20 @@ if __name__ == "__main__":
         const topicId = topicSelect.value || '';
         const topicName = selectedOption && selectedOption.dataset.name ? selectedOption.dataset.name : 'General Research';
 
+        const sections = [];
+        for (let i = 1; i <= slotCount; i++) {
+            const desc = document.getElementById(`article-excerpt-${i}`)?.value || '';
+            const diag = currentDiagrams[i - 1] || '';
+            const cap = document.getElementById(`diagram-caption-input-${i}`)?.value || '';
+            sections.push({
+                description: desc.trim(),
+                diagram: diag,
+                diagramCaption: cap.trim()
+            });
+        }
+
+        const primarySection = sections.find(s => s.description || s.diagram) || sections[0] || { description: '', diagram: '', diagramCaption: '' };
+
         return {
             id: currentArticleId,
             title: title,
@@ -493,10 +586,11 @@ if __name__ == "__main__":
             topicName: topicName,
             date: dateInput.value || new Date().toISOString().split('T')[0],
             tags: tagsInput.value,
-            excerpt: excerptInput.value,
+            excerpt: primarySection.description,
             content: mdInput.value,
-            diagram: currentDiagramData,
-            diagramCaption: captionInput.value
+            diagram: primarySection.diagram,
+            diagramCaption: primarySection.diagramCaption,
+            sections: sections
         };
     }
 

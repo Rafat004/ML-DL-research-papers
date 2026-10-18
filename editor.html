@@ -97,46 +97,168 @@
                 </div>
             </div>
 
-            <!-- Description -->
-            <div class="form-group">
-                <label for="article-excerpt" class="form-label">Description</label>
-                <textarea id="article-excerpt" class="form-input form-textarea-sm" placeholder="A concise description of what this note covers..." rows="2"></textarea>
-            </div>
+            <!-- Multi-Slot Description & Architecture Diagram Sections (3 Slots) -->
+            <div class="editor-sections-group" id="editor-sections-group">
 
-            <!-- Architecture Diagram / Asset Uploader -->
-            <div class="diagram-upload-section">
-                <div class="diagram-section-header">
-                    <div class="diagram-section-title">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                        <span>Architecture Diagram or Visual Asset (Optional)</span>
+                <!-- SLOT 1 -->
+                <div class="editor-section-card" id="editor-section-card-1">
+                    <div class="editor-section-card-header">
+                        <div class="editor-section-badge-title">
+                            <span class="editor-section-badge">1</span>
+                            <span>Description & Architecture Diagram 1 (Overview / Primary)</span>
+                        </div>
+                        <span class="editor-section-subtext">Slot 1</span>
                     </div>
-                    <span class="diagram-section-hint">Drag & drop or paste image URL</span>
-                </div>
 
-                <div class="diagram-input-row">
-                    <div class="file-drop-area" id="file-drop-area">
-                        <input type="file" id="diagram-file-input" accept="image/*" class="file-input-hidden">
-                        <div class="drop-prompt">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-                            <span>Choose architecture image or drop here</span>
+                    <!-- Description 1 -->
+                    <div class="form-group">
+                        <label for="article-excerpt-1" class="form-label">Description 1</label>
+                        <textarea id="article-excerpt-1" class="form-input form-textarea-sm" placeholder="A concise description of what this note covers..." rows="2"></textarea>
+                    </div>
+
+                    <!-- Architecture Diagram 1 -->
+                    <div class="diagram-upload-section">
+                        <div class="diagram-section-header">
+                            <div class="diagram-section-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                <span>Architecture Diagram or Visual Asset (Optional)</span>
+                            </div>
+                            <span class="diagram-section-hint">Drag & drop or paste image URL</span>
+                        </div>
+
+                        <div class="diagram-input-row">
+                            <div class="file-drop-area" id="file-drop-area-1">
+                                <input type="file" id="diagram-file-input-1" accept="image/*" class="file-input-hidden">
+                                <div class="drop-prompt">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                                    <span>Choose architecture image or drop here</span>
+                                </div>
+                            </div>
+                            <div class="url-input-area">
+                                <input type="url" id="diagram-url-input-1" class="form-input" placeholder="Or paste image URL (e.g. https://.../diagram.png)">
+                                <input type="text" id="diagram-caption-input-1" class="form-input" placeholder="Figure Caption: e.g. Figure 1: Self-Attention Block architecture">
+                            </div>
+                        </div>
+
+                        <!-- Diagram Preview Box 1 -->
+                        <div class="diagram-preview-card" id="diagram-preview-card-1" style="display: none;">
+                            <div class="diagram-preview-img-wrapper">
+                                <img id="diagram-preview-img-1" src="" alt="Architecture diagram 1 preview">
+                            </div>
+                            <div class="diagram-preview-meta">
+                                <span id="diagram-preview-caption-1">Figure 1: Architecture diagram</span>
+                                <button type="button" class="btn-remove-diagram" id="btn-remove-diagram-1" title="Remove image">Remove Image ✕</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="url-input-area">
-                        <input type="url" id="diagram-url-input" class="form-input" placeholder="Or paste image URL (e.g. https://.../diagram.png)">
-                        <input type="text" id="diagram-caption-input" class="form-input" placeholder="Figure Caption: e.g. Figure 1: Self-Attention Block architecture">
+                </div>
+
+                <!-- SLOT 2 -->
+                <div class="editor-section-card" id="editor-section-card-2">
+                    <div class="editor-section-card-header">
+                        <div class="editor-section-badge-title">
+                            <span class="editor-section-badge">2</span>
+                            <span>Description & Architecture Diagram 2 (Detailed Architecture)</span>
+                        </div>
+                        <span class="editor-section-subtext">Slot 2</span>
+                    </div>
+
+                    <!-- Description 2 -->
+                    <div class="form-group">
+                        <label for="article-excerpt-2" class="form-label">Description 2</label>
+                        <textarea id="article-excerpt-2" class="form-input form-textarea-sm" placeholder="Detailed explanation, module architecture, or mathematical intuition..." rows="2"></textarea>
+                    </div>
+
+                    <!-- Architecture Diagram 2 -->
+                    <div class="diagram-upload-section">
+                        <div class="diagram-section-header">
+                            <div class="diagram-section-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                <span>Architecture Diagram 2 (Optional)</span>
+                            </div>
+                            <span class="diagram-section-hint">Drag & drop or paste image URL</span>
+                        </div>
+
+                        <div class="diagram-input-row">
+                            <div class="file-drop-area" id="file-drop-area-2">
+                                <input type="file" id="diagram-file-input-2" accept="image/*" class="file-input-hidden">
+                                <div class="drop-prompt">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                                    <span>Choose architecture image or drop here</span>
+                                </div>
+                            </div>
+                            <div class="url-input-area">
+                                <input type="url" id="diagram-url-input-2" class="form-input" placeholder="Or paste image URL (e.g. https://.../diagram2.png)">
+                                <input type="text" id="diagram-caption-input-2" class="form-input" placeholder="Figure Caption: e.g. Figure 2: Detailed component diagram">
+                            </div>
+                        </div>
+
+                        <!-- Diagram Preview Box 2 -->
+                        <div class="diagram-preview-card" id="diagram-preview-card-2" style="display: none;">
+                            <div class="diagram-preview-img-wrapper">
+                                <img id="diagram-preview-img-2" src="" alt="Architecture diagram 2 preview">
+                            </div>
+                            <div class="diagram-preview-meta">
+                                <span id="diagram-preview-caption-2">Figure 2: Architecture diagram</span>
+                                <button type="button" class="btn-remove-diagram" id="btn-remove-diagram-2" title="Remove image">Remove Image ✕</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Diagram Preview Box -->
-                <div class="diagram-preview-card" id="diagram-preview-card" style="display: none;">
-                    <div class="diagram-preview-img-wrapper">
-                        <img id="diagram-preview-img" src="" alt="Architecture diagram preview">
+                <!-- SLOT 3 -->
+                <div class="editor-section-card" id="editor-section-card-3">
+                    <div class="editor-section-card-header">
+                        <div class="editor-section-badge-title">
+                            <span class="editor-section-badge">3</span>
+                            <span>Description & Architecture Diagram 3 (Pipeline / Benchmark / Flow)</span>
+                        </div>
+                        <span class="editor-section-subtext">Slot 3</span>
                     </div>
-                    <div class="diagram-preview-meta">
-                        <span id="diagram-preview-caption">Figure 1: Architecture diagram</span>
-                        <button type="button" class="btn-remove-diagram" id="btn-remove-diagram" title="Remove image">Remove Image ✕</button>
+
+                    <!-- Description 3 -->
+                    <div class="form-group">
+                        <label for="article-excerpt-3" class="form-label">Description 3</label>
+                        <textarea id="article-excerpt-3" class="form-input form-textarea-sm" placeholder="Pipeline analysis, training observations, or benchmark results..." rows="2"></textarea>
+                    </div>
+
+                    <!-- Architecture Diagram 3 -->
+                    <div class="diagram-upload-section">
+                        <div class="diagram-section-header">
+                            <div class="diagram-section-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                <span>Architecture Diagram 3 (Optional)</span>
+                            </div>
+                            <span class="diagram-section-hint">Drag & drop or paste image URL</span>
+                        </div>
+
+                        <div class="diagram-input-row">
+                            <div class="file-drop-area" id="file-drop-area-3">
+                                <input type="file" id="diagram-file-input-3" accept="image/*" class="file-input-hidden">
+                                <div class="drop-prompt">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                                    <span>Choose architecture image or drop here</span>
+                                </div>
+                            </div>
+                            <div class="url-input-area">
+                                <input type="url" id="diagram-url-input-3" class="form-input" placeholder="Or paste image URL (e.g. https://.../diagram3.png)">
+                                <input type="text" id="diagram-caption-input-3" class="form-input" placeholder="Figure Caption: e.g. Figure 3: Training pipeline & performance curves">
+                            </div>
+                        </div>
+
+                        <!-- Diagram Preview Box 3 -->
+                        <div class="diagram-preview-card" id="diagram-preview-card-3" style="display: none;">
+                            <div class="diagram-preview-img-wrapper">
+                                <img id="diagram-preview-img-3" src="" alt="Architecture diagram 3 preview">
+                            </div>
+                            <div class="diagram-preview-meta">
+                                <span id="diagram-preview-caption-3">Figure 3: Architecture diagram</span>
+                                <button type="button" class="btn-remove-diagram" id="btn-remove-diagram-3" title="Remove image">Remove Image ✕</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
             </div>
         </section>
 

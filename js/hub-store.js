@@ -194,7 +194,17 @@ const HubStore = (() => {
 
     function getArticle(idOrSlug) {
         const articles = getArticles();
-        return articles.find(a => a.id === idOrSlug || a.slug === idOrSlug) || null;
+        const article = articles.find(a => a.id === idOrSlug || a.slug === idOrSlug) || null;
+        if (article && (!article.sections || !Array.isArray(article.sections) || article.sections.length === 0)) {
+            article.sections = [
+                {
+                    description: article.excerpt || '',
+                    diagram: article.diagram || '',
+                    diagramCaption: article.diagramCaption || ''
+                }
+            ];
+        }
+        return article;
     }
 
     async function uploadDiagramIfNeeded(articleId, diagramData) {
@@ -252,15 +262,35 @@ const HubStore = (() => {
             tags = articleData.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
         }
 
-        // Upload diagram to Firebase Storage if available
-        let diagramUrl = articleData.diagram || '';
-        if (diagramUrl.startsWith('data:image/')) {
-            try {
-                diagramUrl = await uploadDiagramIfNeeded(artId, diagramUrl);
-            } catch (e) {
-                console.warn('Error uploading diagram:', e);
+        // Normalize and upload multi-slot sections
+        let sections = [];
+        if (Array.isArray(articleData.sections) && articleData.sections.length > 0) {
+            sections = JSON.parse(JSON.stringify(articleData.sections));
+        } else {
+            sections = [
+                {
+                    description: (articleData.excerpt || '').trim(),
+                    diagram: articleData.diagram || '',
+                    diagramCaption: (articleData.diagramCaption || '').trim()
+                }
+            ];
+        }
+
+        // Upload any base64 diagrams in sections to Firebase Storage if available
+        for (let i = 0; i < sections.length; i++) {
+            if (sections[i].diagram && sections[i].diagram.startsWith('data:image/')) {
+                try {
+                    sections[i].diagram = await uploadDiagramIfNeeded(`${artId}-diag-${i + 1}`, sections[i].diagram);
+                } catch (e) {
+                    console.warn(`Error uploading diagram ${i + 1}:`, e);
+                }
             }
         }
+
+        const primarySection = sections.find(s => s.description || s.diagram) || sections[0] || { description: '', diagram: '', diagramCaption: '' };
+        const primaryDiagram = primarySection.diagram || articleData.diagram || '';
+        const primaryCaption = primarySection.diagramCaption || (articleData.diagramCaption || '').trim();
+        const primaryExcerpt = primarySection.description || (articleData.excerpt || '').trim() || generateExcerpt(articleData.content || '');
 
         const articleRecord = {
             id: artId,
@@ -270,11 +300,12 @@ const HubStore = (() => {
             topicName: articleData.topicName || 'General',
             topicSlug: slugify(articleData.topicName || 'general'),
             date: dateStr,
-            excerpt: (articleData.excerpt || '').trim() || generateExcerpt(articleData.content || ''),
+            excerpt: primaryExcerpt,
             tags: tags,
             content: articleData.content || '',
-            diagram: diagramUrl,
-            diagramCaption: (articleData.diagramCaption || '').trim(),
+            diagram: primaryDiagram,
+            diagramCaption: primaryCaption,
+            sections: sections,
             createdAt: existingIndex >= 0 ? articles[existingIndex].createdAt : now,
             updatedAt: now
         };
@@ -365,7 +396,9 @@ const HubStore = (() => {
                 const matches = art.content.match(/```[a-z]*/gi);
                 if (matches) codeCount += Math.floor(matches.length / 2);
             }
-            if (art.diagram) {
+            if (art.sections && Array.isArray(art.sections)) {
+                diagramCount += art.sections.filter(s => s.diagram).length;
+            } else if (art.diagram) {
                 diagramCount++;
             }
         });

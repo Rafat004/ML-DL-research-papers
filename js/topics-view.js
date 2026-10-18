@@ -210,7 +210,10 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
             }
 
             const tagsHtml = (art.tags || []).map(t => `<span class="mini-tag">#${escapeHtml(t)}</span>`).join('');
-            const diagramBadge = art.diagram ? `<span class="mini-tag tag-diagram">📐 diagram</span>` : '';
+            const diagramCount = art.sections ? art.sections.filter(s => s.diagram).length : (art.diagram ? 1 : 0);
+            const diagramBadge = diagramCount > 1 
+                ? `<span class="mini-tag tag-diagram">📐 ${diagramCount} diagrams</span>` 
+                : (diagramCount === 1 ? `<span class="mini-tag tag-diagram">📐 diagram</span>` : '');
 
             html += `
                 <a href="article.html?id=${art.id}" class="post-card">

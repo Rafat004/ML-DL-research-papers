@@ -75,44 +75,80 @@ function initArticleViewer() {
         });
     }
 
-    // Abstract / Summary
-    const abstractCard = document.getElementById('article-abstract');
-    const abstractText = document.getElementById('article-abstract-text');
-    if (abstractCard && abstractText) {
-        if (article.excerpt && article.excerpt.trim()) {
-            abstractText.textContent = article.excerpt.trim();
-            abstractCard.style.display = 'block';
-        } else {
-            abstractCard.style.display = 'none';
+    // Lightbox zoom setup
+    const lightbox = document.getElementById('lightbox-overlay');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxClose = document.getElementById('lightbox-close');
+
+    function openLightbox(src) {
+        if (lightbox && lightboxImg) {
+            lightboxImg.src = src;
+            lightbox.classList.add('active');
         }
     }
 
-    // Architecture Diagram Display
-    const diagramWrapper = document.getElementById('article-diagram-wrapper');
-    const diagramImg = document.getElementById('article-diagram-img');
-    const diagramCaption = document.getElementById('article-diagram-caption');
+    lightboxClose?.addEventListener('click', () => lightbox.classList.remove('active'));
+    lightbox?.addEventListener('click', (e) => {
+        if (e.target === lightbox) lightbox.classList.remove('active');
+    });
 
-    if (article.diagram) {
-        diagramImg.src = article.diagram;
-        diagramCaption.textContent = article.diagramCaption || 'Figure: Architecture diagram';
-        diagramWrapper.style.display = 'block';
+    // Multi-slot Description & Architecture Diagram Display
+    const sectionsContainer = document.getElementById('article-sections-container');
+    const sections = Array.isArray(article.sections) && article.sections.length > 0
+        ? article.sections
+        : [{ description: article.excerpt || '', diagram: article.diagram || '', diagramCaption: article.diagramCaption || '' }];
 
-        // Lightbox zoom setup
-        const lightbox = document.getElementById('lightbox-overlay');
-        const lightboxImg = document.getElementById('lightbox-img');
-        const lightboxClose = document.getElementById('lightbox-close');
+    const activeSections = sections.filter(s => (s.description && s.description.trim()) || s.diagram);
 
-        diagramImg.addEventListener('click', () => {
-            lightboxImg.src = article.diagram;
-            lightbox.classList.add('active');
-        });
+    if (sectionsContainer) {
+        if (activeSections.length > 0) {
+            sectionsContainer.innerHTML = '';
+            activeSections.forEach((sec, idx) => {
+                const sectionEl = document.createElement('div');
+                sectionEl.className = 'article-section-block';
 
-        lightboxClose?.addEventListener('click', () => lightbox.classList.remove('active'));
-        lightbox?.addEventListener('click', (e) => {
-            if (e.target === lightbox) lightbox.classList.remove('active');
-        });
-    } else {
-        diagramWrapper.style.display = 'none';
+                if (sec.description && sec.description.trim()) {
+                    const label = activeSections.length > 1 ? `Description ${idx + 1}:` : 'Description:';
+                    const abstractCard = document.createElement('div');
+                    abstractCard.className = 'article-abstract-card';
+                    abstractCard.innerHTML = `
+                        <div class="abstract-label">${label}</div>
+                        <p class="abstract-text">${escapeHtml(sec.description.trim())}</p>
+                    `;
+                    sectionEl.appendChild(abstractCard);
+                }
+
+                if (sec.diagram) {
+                    const diagCard = document.createElement('section');
+                    diagCard.className = 'article-diagram-wrapper';
+                    const tagLabel = activeSections.length > 1 ? `📐 Architecture Diagram #${idx + 1}` : '📐 Architecture Diagram';
+                    const captionText = sec.diagramCaption || `Figure ${idx + 1}: Architecture diagram`;
+
+                    diagCard.innerHTML = `
+                        <div class="diagram-display-card">
+                            <div class="diagram-tag">${tagLabel}</div>
+                            <div class="diagram-image-container">
+                                <img src="${sec.diagram}" alt="Architecture Diagram ${idx + 1}" class="diagram-zoomable">
+                            </div>
+                            <p class="diagram-caption">${escapeHtml(captionText)}</p>
+                        </div>
+                    `;
+
+                    const img = diagCard.querySelector('.diagram-zoomable');
+                    if (img) {
+                        img.addEventListener('click', () => openLightbox(sec.diagram));
+                    }
+
+                    sectionEl.appendChild(diagCard);
+                }
+
+                sectionsContainer.appendChild(sectionEl);
+            });
+            sectionsContainer.style.display = 'block';
+        } else {
+            sectionsContainer.innerHTML = '';
+            sectionsContainer.style.display = 'none';
+        }
     }
 
     // Render Body Markdown
@@ -225,4 +261,13 @@ function showArticleError(msg) {
             </div>
         `;
     }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
