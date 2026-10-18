@@ -142,6 +142,9 @@ function initEditor() {
         if (customHtmlInput) {
             customHtmlInput.value = article.customHtml || '';
         }
+        if (typeof updateNoteHtmlStatus === 'function') {
+            updateNoteHtmlStatus(Boolean(article.customHtml && article.customHtml.trim()));
+        }
 
         updateLivePreview();
         statusText.textContent = 'Loaded';
@@ -152,6 +155,7 @@ function initEditor() {
     function updateLivePreview() {
         const raw = mdInput.value;
         const title = titleInput.value.trim();
+        const customHtml = (document.getElementById('article-custom-html')?.value || '').trim();
 
         // Collect all non-empty slots
         const activeSlots = [];
@@ -164,7 +168,7 @@ function initEditor() {
             }
         }
 
-        if (!raw.trim() && !title && activeSlots.length === 0) {
+        if (!raw.trim() && !title && activeSlots.length === 0 && !customHtml) {
             previewContent.innerHTML = '<p class="preview-placeholder">Live preview will render here as you type...</p>';
             return;
         }
@@ -172,6 +176,22 @@ function initEditor() {
         let headerHtml = '';
         if (title) {
             headerHtml += `<h1 class="preview-title">${escapeHtml(title)}</h1>`;
+        }
+
+        let customHtmlPreview = '';
+        if (customHtml) {
+            customHtmlPreview = `
+                <div class="editor-live-webui-card">
+                    <div class="editor-live-webui-header">
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <span>🌐 Interactive Web UI Preview</span>
+                            <span class="mini-tag html-note-badge" style="font-size: 0.65rem;">Active Sandbox</span>
+                        </div>
+                        <span style="font-size: 0.72rem; color: #9caec8;">Renders at top of published note</span>
+                    </div>
+                    <iframe class="editor-live-webui-iframe" id="split-preview-iframe" title="Interactive Web UI Preview" sandbox="allow-scripts allow-forms allow-same-origin allow-modals"></iframe>
+                </div>
+            `;
         }
 
         let sectionsHtml = '';
@@ -203,7 +223,14 @@ function initEditor() {
         }
 
         const html = HubStore.renderMarkdown(raw);
-        previewContent.innerHTML = headerHtml + sectionsHtml + html;
+        previewContent.innerHTML = headerHtml + customHtmlPreview + sectionsHtml + html;
+
+        if (customHtml) {
+            const splitIframe = previewContent.querySelector('#split-preview-iframe');
+            if (splitIframe) {
+                splitIframe.srcdoc = customHtml;
+            }
+        }
 
         // Render KaTeX math formulas
         if (typeof renderMathInElement === 'function') {
@@ -560,13 +587,51 @@ if __name__ == "__main__":
     const btnNotePaste = document.getElementById('btn-note-helper-paste');
     const btnNoteTemplate = document.getElementById('btn-note-helper-template');
     const btnNotePreview = document.getElementById('btn-note-helper-preview');
+    const btnNoteHelperSave = document.getElementById('btn-note-helper-save');
+    const btnNotePreviewSave = document.getElementById('btn-note-preview-save');
+    const noteHtmlStatusPill = document.getElementById('note-html-status-pill');
     const notePreviewContainer = document.getElementById('note-html-preview-container');
     const notePreviewFrame = document.getElementById('note-html-preview-frame');
     const btnCloseNotePreview = document.getElementById('btn-close-note-preview');
+    const previewSandboxStatus = document.getElementById('preview-sandbox-status');
+
+    function updateNoteHtmlStatus(isSaved = false) {
+        if (!noteHtmlStatusPill) return;
+        const code = (noteHtmlInput?.value || '').trim();
+        if (!code) {
+            noteHtmlStatusPill.className = 'html-status-pill';
+            noteHtmlStatusPill.textContent = 'No HTML code added';
+            if (previewSandboxStatus) {
+                previewSandboxStatus.className = 'html-status-pill';
+                previewSandboxStatus.textContent = 'Empty';
+            }
+            return;
+        }
+
+        const sizeKb = (code.length / 1024).toFixed(1);
+        if (isSaved) {
+            noteHtmlStatusPill.className = 'html-status-pill saved';
+            noteHtmlStatusPill.textContent = `✓ Web UI Saved (${sizeKb} KB - Local & Cloud)`;
+            if (previewSandboxStatus) {
+                previewSandboxStatus.className = 'html-status-pill saved';
+                previewSandboxStatus.textContent = '✓ Saved to Note & Cloud';
+            }
+        } else {
+            noteHtmlStatusPill.className = 'html-status-pill ready';
+            noteHtmlStatusPill.textContent = `⚡ Web UI Ready (${sizeKb} KB - Click Save)`;
+            if (previewSandboxStatus) {
+                previewSandboxStatus.className = 'html-status-pill ready';
+                previewSandboxStatus.textContent = '⚡ Sandbox Active';
+            }
+        }
+    }
 
     if (noteHtmlInput) {
         noteHtmlInput.addEventListener('input', () => {
+            updateNoteHtmlStatus(false);
             markDirty();
+            clearTimeout(previewDebounceTimer);
+            previewDebounceTimer = setTimeout(updateLivePreview, 400);
         });
     }
 
@@ -576,7 +641,9 @@ if __name__ == "__main__":
             if (text && noteHtmlInput) {
                 noteHtmlInput.value = text;
                 noteHtmlInput.focus();
+                updateNoteHtmlStatus(false);
                 markDirty();
+                updateLivePreview();
                 showToast('Pasted HTML code from clipboard', 'info');
             }
         } catch (e) {
@@ -593,7 +660,9 @@ if __name__ == "__main__":
         noteHtmlInput.value = typeof HubStore !== 'undefined' && typeof HubStore.getStarterHtmlTemplate === 'function'
             ? HubStore.getStarterHtmlTemplate(title)
             : `<!DOCTYPE html><html><body><h1>${title}</h1></body></html>`;
+        updateNoteHtmlStatus(false);
         markDirty();
+        updateLivePreview();
         showToast('Loaded Interactive Roadmap starter template', 'success');
     });
 
@@ -606,10 +675,25 @@ if __name__ == "__main__":
         }
         notePreviewFrame.srcdoc = code;
         notePreviewContainer.style.display = 'block';
+        updateNoteHtmlStatus(false);
+        if (previewSandboxStatus) {
+            previewSandboxStatus.className = 'html-status-pill ready';
+            previewSandboxStatus.textContent = '⚡ Sandbox Active';
+        }
+        notePreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 
     btnCloseNotePreview?.addEventListener('click', () => {
         if (notePreviewContainer) notePreviewContainer.style.display = 'none';
+    });
+
+    // Direct save triggers inside the HTML Embed section
+    btnNoteHelperSave?.addEventListener('click', () => {
+        saveArticleLocally();
+    });
+
+    btnNotePreviewSave?.addEventListener('click', () => {
+        saveArticleLocally();
     });
 
     /* ---- Save Article Locally ---- */
@@ -683,12 +767,23 @@ if __name__ == "__main__":
         try {
             markClean('Saving...');
             btnSaveLocal.disabled = true;
+            if (btnNoteHelperSave) {
+                btnNoteHelperSave.disabled = true;
+                btnNoteHelperSave.textContent = 'Saving...';
+            }
+            if (btnNotePreviewSave) {
+                btnNotePreviewSave.disabled = true;
+                btnNotePreviewSave.textContent = 'Saving...';
+            }
+
             const saved = await HubStore.saveArticle(data);
             currentArticleId = saved.id;
             const isCloud = HubStore.isFirebaseConnected();
             const statusMsg = isCloud ? 'Saved to Cloud & Local!' : 'Saved locally';
             markClean(statusMsg);
-            showToast(`Research note saved! (${statusMsg})`, 'success');
+            updateNoteHtmlStatus(true);
+            const htmlMsg = data.customHtml ? ' (with interactive Web UI)' : '';
+            showToast(`Research note saved${htmlMsg}! (${statusMsg})`, 'success');
             
             // Update URL without reloading
             const newUrl = `${window.location.pathname}?edit=${saved.id}`;
@@ -698,6 +793,14 @@ if __name__ == "__main__":
             showToast(`Error saving article: ${e.message}`, 'error');
         } finally {
             btnSaveLocal.disabled = false;
+            if (btnNoteHelperSave) {
+                btnNoteHelperSave.disabled = false;
+                btnNoteHelperSave.textContent = '💾 Save Note & Web UI';
+            }
+            if (btnNotePreviewSave) {
+                btnNotePreviewSave.disabled = false;
+                btnNotePreviewSave.textContent = '💾 Save Note & Web UI';
+            }
         }
     }
 

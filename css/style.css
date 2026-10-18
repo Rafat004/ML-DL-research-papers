@@ -3668,3 +3668,97 @@ img {
     font-weight: 600;
 }
 
+/* Note Editor HTML Embed & Web UI Save Controls */
+.btn-save-html {
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35) !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer;
+}
+
+.btn-save-html:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5) !important;
+    transform: translateY(-1px);
+}
+
+.btn-save-html:active {
+    transform: translateY(0);
+}
+
+.html-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.12);
+    color: var(--color-text-secondary);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    transition: all 0.25s ease;
+}
+
+.html-status-pill.ready {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+.html-status-pill.saved {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border-color: rgba(34, 197, 94, 0.35);
+}
+
+.html-embed-info-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.65rem 0.9rem;
+    margin-bottom: 0.85rem;
+    border-radius: var(--radius-sm);
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.22);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--color-text-secondary);
+}
+
+.html-embed-info-tip strong {
+    color: var(--color-text);
+}
+
+.editor-live-webui-card {
+    margin: 1.25rem 0 1.5rem;
+    border: 1px solid #283752;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: #0d1322;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.editor-live-webui-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.85rem;
+    background: #141f38;
+    border-bottom: 1px solid #283752;
+    font-size: 0.78rem;
+    color: #93c5fd;
+    font-weight: 600;
+}
+
+.editor-live-webui-iframe {
+    width: 100%;
+    height: 380px;
+    border: none;
+    display: block;
+    background: #ffffff;
+}
+
+

@@ -983,7 +983,7 @@ const HubStore = (() => {
             diagram: primaryDiagram,
             diagramCaption: primaryCaption,
             sections: sections,
-            isHtmlNote: Boolean(articleData.isHtmlNote),
+            isHtmlNote: Boolean(articleData.isHtmlNote || (articleData.customHtml && articleData.customHtml.trim().length > 0)),
             customHtml: articleData.customHtml || '',
             createdAt: existingIndex >= 0 ? articles[existingIndex].createdAt : now,
             updatedAt: now

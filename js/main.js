@@ -219,6 +219,8 @@ function renderRecentPosts() {
         const diagramBadge = diagramCount > 1 
             ? `<span class="mini-tag tag-diagram">📐 ${diagramCount} diagrams</span>` 
             : (diagramCount === 1 ? `<span class="mini-tag tag-diagram">📐 diagram</span>` : '');
+        const hasHtml = Boolean(art.isHtmlNote || (art.customHtml && art.customHtml.trim().length > 0));
+        const htmlBadge = hasHtml ? `<span class="mini-tag html-note-badge">🌐 Interactive Web App</span>` : '';
 
         html += `
             <a href="article.html?id=${art.id}" class="post-card" id="post-${art.id}">
@@ -233,6 +235,7 @@ function renderRecentPosts() {
                     <div class="post-tags">
                         ${tagsHtml}
                         ${diagramBadge}
+                        ${htmlBadge}
                     </div>
                 </div>
                 <div class="post-arrow">→</div>

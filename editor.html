@@ -268,25 +268,37 @@
                         </div>
                         <span class="editor-section-subtext">Interactive Sandbox</span>
                     </div>
-                    <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.75rem;">
-                        Paste any HTML code (interactive tree, simulation, animated architecture diagram) to embed it as an interactive component inside this note.
-                    </p>
+
+                    <div class="html-embed-info-tip">
+                        <span>💡 <strong>Interactive Web UI:</strong> Paste any raw HTML/CSS/JS (e.g. interactive trees, simulations, roadmaps). Click <strong>💾 Save Note &amp; Web UI</strong> to permanently store it with this note (both Locally and on Firebase Cloud). When published, it renders as a full interactive app with Expand and Fullscreen controls at the top of the note.</span>
+                    </div>
+
                     <div class="code-toolbar-row">
-                        <label class="form-label" for="article-custom-html" style="margin-bottom: 0;">HTML Code</label>
+                        <label class="form-label" for="article-custom-html" style="margin-bottom: 0; display: inline-flex; align-items: center; gap: 0.6rem;">
+                            <span>HTML Code</span>
+                            <span id="note-html-status-pill" class="html-status-pill">No HTML code added</span>
+                        </label>
                         <div class="code-toolbar-actions">
-                            <button type="button" class="btn-code-helper" id="btn-note-helper-paste">📋 Paste Clipboard</button>
-                            <button type="button" class="btn-code-helper" id="btn-note-helper-template">✨ Load Roadmap Template</button>
-                            <button type="button" class="btn-code-helper" id="btn-note-helper-preview">👁️ Live Preview</button>
+                            <button type="button" class="btn-code-helper" id="btn-note-helper-paste" title="Paste HTML from clipboard">📋 Paste Clipboard</button>
+                            <button type="button" class="btn-code-helper" id="btn-note-helper-template" title="Load an interactive roadmap starter template">✨ Load Roadmap Template</button>
+                            <button type="button" class="btn-code-helper" id="btn-note-helper-preview" title="Open live interactive sandbox preview below">👁️ Live Preview</button>
+                            <button type="button" class="btn-code-helper btn-save-html" id="btn-note-helper-save" title="Save this HTML code and note immediately (Local + Cloud)">💾 Save Note &amp; Web UI</button>
                         </div>
                     </div>
-                    <textarea id="article-custom-html" class="html-editor-textarea" style="min-height: 150px;" placeholder="<!DOCTYPE html>... Paste raw HTML code with CSS & JS here"></textarea>
+                    <textarea id="article-custom-html" class="html-editor-textarea" style="min-height: 160px;" placeholder="<!DOCTYPE html>... Paste raw HTML code with CSS & JS here"></textarea>
 
                     <div class="html-preview-frame-container" id="note-html-preview-container" style="display: none; margin-top: 0.75rem;">
                         <div class="html-preview-header">
-                            <span>Live Note App Sandbox Preview</span>
-                            <button type="button" class="btn-code-helper" id="btn-close-note-preview">Close Preview ✕</button>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span>🌐 Live Note App Sandbox Preview</span>
+                                <span class="html-status-pill ready" id="preview-sandbox-status">⚡ Sandbox Active</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <button type="button" class="btn-code-helper btn-save-html" id="btn-note-preview-save" title="Save this HTML code and note directly from preview">💾 Save Note &amp; Web UI</button>
+                                <button type="button" class="btn-code-helper" id="btn-close-note-preview">Close Preview ✕</button>
+                            </div>
                         </div>
-                        <iframe class="html-preview-frame" id="note-html-preview-frame" title="Note HTML Preview"></iframe>
+                        <iframe class="html-preview-frame" id="note-html-preview-frame" title="Note HTML Preview" sandbox="allow-scripts allow-forms allow-same-origin allow-modals"></iframe>
                     </div>
                 </div>
 

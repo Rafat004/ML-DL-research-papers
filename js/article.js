@@ -157,7 +157,8 @@ function initArticleViewer() {
     bodyEl.innerHTML = html;
 
     // Render Interactive HTML container if article has custom HTML code
-    if (article.isHtmlNote && article.customHtml) {
+    const hasCustomHtml = Boolean(article.customHtml && article.customHtml.trim().length > 0);
+    if (hasCustomHtml) {
         const interactiveContainer = document.createElement('div');
         interactiveContainer.className = 'topic-roadmap-container';
         interactiveContainer.style.margin = '1rem 0 2rem';
