@@ -53,9 +53,10 @@
                 <!-- OWNER AUTH WIDGET -->
                 <div class="auth-widget" id="auth-widget">
                     <button type="button" class="btn-auth" id="btn-auth-action" title="Sign in as Owner">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                            <circle cx="12" cy="7" r="4"/>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
                         </svg>
                         <span id="auth-btn-text">Owner Login</span>
                     </button>
@@ -96,10 +97,9 @@
     <section class="hero" id="hero">
         <div class="hero-inner">
             <div class="hero-badge">⚡ Personal Research Library</div>
-            <h1 class="hero-title"> Machine Learning and Deep Learning <br><span class="accent">Knowledge Hub</span></h1>
+            <h1 class="hero-title"> Rafat's ML/DL <br><span class="accent">Knowledge Hub</span></h1>
             <p class="hero-subtitle">
-                A personal space to store all your deep learning materials — add your own topics,
-                write mathematical notes with KaTeX, attach architecture diagrams, and implement PyTorch code.
+                A personal space to store all my machine and deep learning materials
             </p>
 
             <div class="hero-stats">
@@ -137,7 +137,7 @@
                 <div class="section-header">
                     <span class="section-tag">Learning Pathways</span>
                     <h2 class="section-title">Topic Categories</h2>
-                    <p class="section-desc">Add and organize your custom research areas — each topic groups your related
+                    <p class="section-desc">Add and organize custom research areas — each topic groups related
                         articles.</p>
                 </div>
                 <div class="section-header-actions">
@@ -162,12 +162,14 @@
                     <div class="sync-icon">☁️</div>
                     <div>
                         <h4 id="cloud-banner-title">Firebase Cloud Synchronization</h4>
-                        <p id="cloud-banner-desc">Sync all notes, derivations, and diagrams to Google Firebase so they are permanently live on mobile, desktop, and visible to everyone.</p>
+                        <p id="cloud-banner-desc">Sync all notes, derivations, and diagrams to Google Firebase so they
+                            are permanently live on mobile, desktop, and visible to everyone.</p>
                     </div>
                 </div>
                 <div class="sync-banner-actions">
                     <button type="button" class="btn btn-sm btn-primary" id="btn-banner-cloud">⚡ Connect Cloud</button>
-                    <button type="button" class="btn btn-sm btn-secondary" id="btn-upload-local-cloud">Upload Local to Cloud</button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="btn-upload-local-cloud">Upload Local to
+                        Cloud</button>
                     <button type="button" class="btn btn-sm btn-secondary" id="btn-export-backup">Export JSON</button>
                     <label class="btn btn-sm btn-secondary btn-file-import">
                         <span>Import JSON</span>
@@ -215,16 +217,21 @@
                         <div class="form-row">
                             <div class="form-group flex-1">
                                 <label class="form-label" for="home-topic-html-title">Interactive Tab Title</label>
-                                <input type="text" id="home-topic-html-title" class="form-input" placeholder="e.g. 🗺️ Interactive Roadmap">
+                                <input type="text" id="home-topic-html-title" class="form-input"
+                                    placeholder="e.g. 🗺️ Interactive Roadmap">
                             </div>
                             <div class="form-group flex-1">
                                 <label class="form-label" for="home-topic-html-tag">Badge / Tag</label>
-                                <input type="text" id="home-topic-html-tag" class="form-input" placeholder="e.g. 10 Branches, Interactive Tree">
+                                <input type="text" id="home-topic-html-tag" class="form-input"
+                                    placeholder="e.g. 10 Branches, Interactive Tree">
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="home-topic-custom-html">HTML Code (complete HTML document or snippet)</label>
-                            <textarea id="home-topic-custom-html" class="html-editor-textarea" style="min-height: 140px;" placeholder="<!DOCTYPE html>... Paste your HTML code here"></textarea>
+                            <label class="form-label" for="home-topic-custom-html">HTML Code (complete HTML document or
+                                snippet)</label>
+                            <textarea id="home-topic-custom-html" class="html-editor-textarea"
+                                style="min-height: 140px;"
+                                placeholder="<!DOCTYPE html>... Paste your HTML code here"></textarea>
                         </div>
                     </div>
                 </details>
@@ -286,31 +293,41 @@
                 <button type="button" class="modal-close" id="btn-close-cloud-modal" aria-label="Close modal">✕</button>
             </div>
             <div class="modal-body">
-                <div id="cloud-status-card" style="margin-bottom: 1.25rem; padding: 1rem; border-radius: var(--radius-md); background: var(--color-bg-alt); border: 1px solid var(--color-border);">
+                <div id="cloud-status-card"
+                    style="margin-bottom: 1.25rem; padding: 1rem; border-radius: var(--radius-md); background: var(--color-bg-alt); border: 1px solid var(--color-border);">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-weight: 600; font-size: 0.9rem;">Status:</span>
                         <div style="display: flex; align-items: center; gap: 0.45rem;">
                             <span id="cloud-modal-badge" class="cloud-status-dot"></span>
-                            <span id="cloud-modal-status-text" style="font-size: 0.85rem; font-weight: 500;">Checking connection...</span>
+                            <span id="cloud-modal-status-text" style="font-size: 0.85rem; font-weight: 500;">Checking
+                                connection...</span>
                         </div>
                     </div>
                 </div>
 
                 <div id="cloud-connected-actions" style="display: none; margin-bottom: 1.25rem;">
                     <p style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.75rem;">
-                        Your hub is connected to Firebase Firestore! Any changes save to the cloud and sync automatically to all devices.
+                        Your hub is connected to Firebase Firestore! Any changes save to the cloud and sync
+                        automatically to all devices.
                     </p>
                     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                        <button type="button" class="btn btn-sm btn-primary" id="btn-cloud-sync-now">🔄 Sync Now</button>
-                        <button type="button" class="btn btn-sm btn-secondary" id="btn-cloud-upload-all">🚀 Upload Local Notes to Cloud</button>
-                        <button type="button" class="btn btn-sm btn-secondary" id="btn-cloud-reset-local">🗑️ Reset Local Cache</button>
-                        <button type="button" class="btn btn-sm btn-secondary" id="btn-cloud-disconnect" style="color: var(--color-danger, #ef4444);">Disconnect</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="btn-cloud-sync-now">🔄 Sync
+                            Now</button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="btn-cloud-upload-all">🚀 Upload Local
+                            Notes to Cloud</button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="btn-cloud-reset-local">🗑️ Reset
+                            Local Cache</button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="btn-cloud-disconnect"
+                            style="color: var(--color-danger, #ef4444);">Disconnect</button>
                     </div>
                 </div>
 
                 <div id="cloud-connect-form">
                     <p style="font-size: 0.86rem; line-height: 1.5; color: var(--color-text); margin-bottom: 0.75rem;">
-                        <strong>Paste your Firebase config:</strong> Create a free project at <a href="https://console.firebase.google.com" target="_blank" rel="noopener" class="form-link">console.firebase.google.com ↗</a>, go to <em>Project Settings</em> → <em>Add Web App (&lt;/&gt;)</em>, and paste the config snippet below:
+                        <strong>Paste your Firebase config:</strong> Create a free project at <a
+                            href="https://console.firebase.google.com" target="_blank" rel="noopener"
+                            class="form-link">console.firebase.google.com ↗</a>, go to <em>Project Settings</em> →
+                        <em>Add Web App (&lt;/&gt;)</em>, and paste the config snippet below:
                     </p>
                     <div class="form-group">
                         <textarea id="cloud-config-input" class="cloud-config-textarea" placeholder='const firebaseConfig = {
@@ -321,7 +338,8 @@
   messagingSenderId: "123456789",
   appId: "1:123456789:web:abcdef"
 };'></textarea>
-                        <span class="form-help">Tip: You can paste the whole config object snippet. It will automatically extract your keys and save them.</span>
+                        <span class="form-help">Tip: You can paste the whole config object snippet. It will
+                            automatically extract your keys and save them.</span>
                     </div>
                 </div>
             </div>
