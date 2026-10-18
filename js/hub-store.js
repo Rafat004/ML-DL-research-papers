@@ -16,6 +16,7 @@ const HubStore = (() => {
             slug: 'mldl-roadmap',
             icon: '🧠',
             tag: 'roadmap',
+            order: 0,
             description: 'Custom deep learning topic notes and code.',
             createdAt: 1700000000000,
             updatedAt: 1700000000000
@@ -302,6 +303,7 @@ const HubStore = (() => {
                 if (!winner.htmlTag && loser.htmlTag) winner.htmlTag = loser.htmlTag;
                 if (!winner.icon && loser.icon) winner.icon = loser.icon;
                 if (!winner.tag && loser.tag) winner.tag = loser.tag;
+                if (winner.order === undefined && loser.order !== undefined) winner.order = loser.order;
                 if (!winner.createdAt || (loser.createdAt && loser.createdAt < winner.createdAt)) {
                     winner.createdAt = loser.createdAt;
                 }
@@ -315,6 +317,12 @@ const HubStore = (() => {
         });
 
         const deduped = Array.from(uniqueMap.values());
+        deduped.sort((a, b) => {
+            const orderA = (a.order !== undefined && a.order !== null) ? a.order : 9999;
+            const orderB = (b.order !== undefined && b.order !== null) ? b.order : 9999;
+            if (orderA !== orderB) return orderA - orderB;
+            return (a.createdAt || 0) - (b.createdAt || 0);
+        });
         return { deduped, duplicatesToDelete };
     }
 
@@ -455,6 +463,7 @@ const HubStore = (() => {
                 id: (existing && existing.id) ? existing.id : (topicData.id || uid('top')),
                 name: name,
                 slug: slug,
+                order: (existing && existing.order !== undefined) ? existing.order : (topicData.order !== undefined ? topicData.order : topics.length),
                 icon: topicData.icon || (existing ? existing.icon : '🧠'),
                 tag: topicData.tag || (existing ? existing.tag : 'Deep Learning'),
                 description: (topicData.description !== undefined ? topicData.description : (existing ? existing.description : '')).trim(),
@@ -579,6 +588,259 @@ const HubStore = (() => {
         }
 
         return true;
+    }
+
+    async function reorderTopics(orderedIds) {
+        if (!Array.isArray(orderedIds) || orderedIds.length === 0) return getTopics();
+
+        const topics = getTopics();
+        const idMap = new Map();
+        topics.forEach(t => idMap.set(t.id, t));
+
+        const now = Date.now();
+        const reordered = [];
+        const changedTopics = [];
+
+        orderedIds.forEach((id, idx) => {
+            const t = idMap.get(id);
+            if (t) {
+                if (t.order !== idx) {
+                    t.order = idx;
+                    t.updatedAt = now;
+                    changedTopics.push(t);
+                }
+                reordered.push(t);
+                idMap.delete(id);
+            }
+        });
+
+        // Any leftover topics not in orderedIds are appended at the end
+        Array.from(idMap.values()).forEach((t, extraIdx) => {
+            const newOrder = reordered.length + extraIdx;
+            if (t.order !== newOrder) {
+                t.order = newOrder;
+                t.updatedAt = now;
+                changedTopics.push(t);
+            }
+            reordered.push(t);
+        });
+
+        localStorage.setItem(STORAGE_KEY_TOPICS, JSON.stringify(reordered));
+
+        // Sync with Firebase Firestore if connected
+        const db = getFirebaseDb();
+        if (db && changedTopics.length > 0) {
+            try {
+                const batch = db.batch();
+                changedTopics.forEach(t => {
+                    const docRef = db.collection('topics').doc(t.id);
+                    batch.set(docRef, t, { merge: true });
+                });
+                await batch.commit();
+            } catch (err) {
+                console.warn('[HubStore] Cloud batch update topic order fallback:', err.message);
+                for (const t of changedTopics) {
+                    try {
+                        await db.collection('topics').doc(t.id).set(t, { merge: true });
+                    } catch (e) {}
+                }
+            }
+        }
+
+        return reordered;
+    }
+
+    /* ---- Drag & Drop Topic Cards Reordering (PowerPoint Slide style) ---- */
+    let suppressCardClick = false;
+
+    function showTopicReorderToast(message) {
+        let toast = document.getElementById('topic-reorder-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'topic-reorder-toast';
+            toast.className = 'topic-reorder-toast';
+            document.body.appendChild(toast);
+        }
+        const safeMsg = (message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        toast.innerHTML = `<span style="font-size: 1.1rem; line-height: 1;">⇅</span><span>${safeMsg}</span>`;
+        toast.classList.add('visible');
+        if (toast._timer) clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => {
+            toast.classList.remove('visible');
+        }, 2200);
+    }
+
+    function initTopicDragAndDrop(gridContainer, callback) {
+        if (!gridContainer) return;
+
+        let draggedCard = null;
+        const cards = gridContainer.querySelectorAll('.topic-card:not(.topic-card-add)');
+
+        cards.forEach(card => {
+            card.setAttribute('draggable', 'true');
+
+            // Drag Start
+            card.addEventListener('dragstart', (e) => {
+                draggedCard = card;
+                suppressCardClick = true;
+                card.classList.add('is-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', card.getAttribute('data-topic-id') || '');
+
+                setTimeout(() => {
+                    if (draggedCard === card) {
+                        card.style.opacity = '0.35';
+                    }
+                }, 0);
+            });
+
+            // Drag Over
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (!draggedCard || draggedCard === card) return;
+
+                const rect = card.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+
+                if (e.clientX < midX) {
+                    card.classList.add('drop-before');
+                    card.classList.remove('drop-after');
+                } else {
+                    card.classList.add('drop-after');
+                    card.classList.remove('drop-before');
+                }
+            });
+
+            // Drag Leave
+            card.addEventListener('dragleave', (e) => {
+                if (!card.contains(e.relatedTarget)) {
+                    card.classList.remove('drop-before', 'drop-after');
+                }
+            });
+
+            // Drop
+            card.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (!draggedCard || draggedCard === card) {
+                    cleanupDragStyles();
+                    return;
+                }
+
+                const isBefore = card.classList.contains('drop-before');
+                cleanupDragStyles();
+
+                // Re-insert dragged card in DOM
+                if (isBefore) {
+                    gridContainer.insertBefore(draggedCard, card);
+                } else {
+                    gridContainer.insertBefore(draggedCard, card.nextSibling);
+                }
+
+                // Immediately re-serialize numbers 01, 02, 03... on all cards
+                const currentCards = gridContainer.querySelectorAll('.topic-card:not(.topic-card-add)');
+                const newOrderedIds = [];
+                let newMovedIndex = -1;
+                const movedTopicId = draggedCard.getAttribute('data-topic-id');
+                const movedTopicTitle = draggedCard.querySelector('.topic-title')?.textContent?.trim() || 'Topic';
+
+                currentCards.forEach((c, index) => {
+                    const id = c.getAttribute('data-topic-id');
+                    if (id) newOrderedIds.push(id);
+                    if (id === movedTopicId) {
+                        newMovedIndex = index;
+                    }
+                    const numEl = c.querySelector('.topic-number');
+                    if (numEl) {
+                        const newNumStr = (index + 1).toString().padStart(2, '0');
+                        if (numEl.textContent !== newNumStr) {
+                            numEl.textContent = newNumStr;
+                            numEl.classList.remove('updated-pulse');
+                            void numEl.offsetWidth; // Trigger reflow for animation
+                            numEl.classList.add('updated-pulse');
+                        }
+                    }
+                });
+
+                // Persist the new sequence in LocalStorage and Firebase
+                try {
+                    await reorderTopics(newOrderedIds);
+                    const serialStr = (newMovedIndex + 1).toString().padStart(2, '0');
+                    showTopicReorderToast(`Moved "${movedTopicTitle}" to #${serialStr}`);
+                    if (typeof callback === 'function') {
+                        callback(newOrderedIds);
+                    }
+                } catch (err) {
+                    console.warn('Error saving topic order:', err);
+                }
+            });
+
+            // Drag End
+            card.addEventListener('dragend', () => {
+                cleanupDragStyles();
+                // Block navigation click after drag
+                setTimeout(() => {
+                    suppressCardClick = false;
+                    draggedCard = null;
+                }, 200);
+            });
+
+            // Prevent link navigation if drag occurred
+            card.addEventListener('click', (e) => {
+                if (suppressCardClick) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
+        });
+
+        // Also allow dropping onto the "+ Add Topic" action card (moves item to the end)
+        const addCard = gridContainer.querySelector('.topic-card-add');
+        if (addCard) {
+            addCard.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                addCard.classList.add('drop-before');
+            });
+            addCard.addEventListener('dragleave', () => {
+                addCard.classList.remove('drop-before');
+            });
+            addCard.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                addCard.classList.remove('drop-before');
+                if (!draggedCard) return;
+
+                gridContainer.insertBefore(draggedCard, addCard);
+                cleanupDragStyles();
+
+                const currentCards = gridContainer.querySelectorAll('.topic-card:not(.topic-card-add)');
+                const newOrderedIds = [];
+                currentCards.forEach((c, index) => {
+                    const id = c.getAttribute('data-topic-id');
+                    if (id) newOrderedIds.push(id);
+                    const numEl = c.querySelector('.topic-number');
+                    if (numEl) {
+                        numEl.textContent = (index + 1).toString().padStart(2, '0');
+                    }
+                });
+                await reorderTopics(newOrderedIds);
+                showTopicReorderToast(`Topic moved to end of sequence`);
+            });
+        }
+
+        function cleanupDragStyles() {
+            if (draggedCard) {
+                draggedCard.classList.remove('is-dragging');
+                draggedCard.style.opacity = '';
+            }
+            gridContainer.querySelectorAll('.topic-card').forEach(c => {
+                c.classList.remove('drop-before', 'drop-after', 'is-dragging');
+                c.style.opacity = '';
+            });
+        }
     }
 
     /* ---- Articles Storage ---- */
@@ -1240,6 +1502,7 @@ const HubStore = (() => {
         getTopics,
         getTopic,
         saveTopic,
+        reorderTopics,
         deleteTopic,
         getArticles,
         getArticle,
@@ -1263,6 +1526,8 @@ const HubStore = (() => {
         isRoadmapTopic,
         topicHasHtml,
         getTopicHtmlInfo,
-        getStarterHtmlTemplate
+        getStarterHtmlTemplate,
+        initTopicDragAndDrop,
+        showTopicReorderToast
     };
 })();

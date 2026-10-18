@@ -115,7 +115,7 @@ function renderTopicsView() {
 
 function renderAllTopics(container, pageTitle, pageDesc) {
     pageTitle.textContent = 'Topic Directory';
-    pageDesc.textContent = 'Your custom deep learning research topics. Click any topic to view its articles, code, and architecture diagrams.';
+    pageDesc.innerHTML = 'Your custom deep learning research topics. Click any topic to view its articles, or <span class="topic-reorder-hint">⠿ Drag cards to change sequence &amp; numbering</span>';
 
     const topics = HubStore.getTopics();
     const articles = HubStore.getArticles();
@@ -148,10 +148,17 @@ function renderAllTopics(container, pageTitle, pageDesc) {
         const numStr = (idx + 1).toString().padStart(2, '0');
 
         html += `
-            <a href="topics.html?topic=${topic.slug}" class="topic-card">
+            <a href="topics.html?topic=${topic.slug}" class="topic-card" data-topic-id="${topic.id}">
                 <button type="button" class="topic-card-delete-btn" data-topic-id="${topic.id}" data-topic-name="${escapeHtml(topic.name)}" title="Delete topic">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
+                <div class="topic-drag-handle" title="Drag to reorder sequence (PowerPoint slide style)" aria-label="Drag to reorder">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
+                        <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
+                        <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+                    </svg>
+                </div>
                 <div class="topic-number">${numStr}</div>
                 <div class="topic-icon">${topic.icon || '🧠'}</div>
                 <h3 class="topic-title">${escapeHtml(topic.name)}</h3>
@@ -177,6 +184,12 @@ function renderAllTopics(container, pageTitle, pageDesc) {
 
     html += '</div>';
     container.innerHTML = html;
+
+    // Initialize PowerPoint-style drag-and-drop reordering
+    const grid = container.querySelector('.topics-grid');
+    if (grid && typeof HubStore.initTopicDragAndDrop === 'function') {
+        HubStore.initTopicDragAndDrop(grid);
+    }
 
     // Attach card delete button handlers
     container.querySelectorAll('.topic-card-delete-btn').forEach(btn => {
