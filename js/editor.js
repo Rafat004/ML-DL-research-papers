@@ -43,6 +43,19 @@ function initEditor() {
     const btnSaveGhSettings = document.getElementById('btn-save-gh-settings');
     const btnTestGhConnection = document.getElementById('btn-test-gh-connection');
 
+    // Custom Interactive HTML Embed elements
+    const noteHtmlInput = document.getElementById('article-custom-html');
+    const noteHtmlStatusPill = document.getElementById('note-html-status-pill');
+    const btnNotePaste = document.getElementById('btn-note-helper-paste');
+    const btnNoteTemplate = document.getElementById('btn-note-helper-template');
+    const btnNotePreview = document.getElementById('btn-note-helper-preview');
+    const btnNoteHelperSave = document.getElementById('btn-note-helper-save');
+    const btnNotePreviewSave = document.getElementById('btn-note-preview-save');
+    const notePreviewContainer = document.getElementById('note-html-preview-container');
+    const notePreviewFrame = document.getElementById('note-html-preview-frame');
+    const btnCloseNotePreview = document.getElementById('btn-close-note-preview');
+    const previewSandboxStatus = document.getElementById('preview-sandbox-status');
+
     // State
     let currentArticleId = null;
     let isDirty = false;
@@ -52,24 +65,43 @@ function initEditor() {
         dateInput.value = new Date().toISOString().split('T')[0];
     }
 
+    /* ---- Status Pill Updater for Embedded HTML ---- */
+    function updateNoteHtmlStatus(isSaved = false) {
+        const pill = document.getElementById('note-html-status-pill');
+        const input = document.getElementById('article-custom-html');
+        const previewStatus = document.getElementById('preview-sandbox-status');
+        if (!pill) return;
+        const code = (input?.value || '').trim();
+        if (!code) {
+            pill.className = 'html-status-pill';
+            pill.textContent = 'No HTML code added';
+            if (previewStatus) {
+                previewStatus.className = 'html-status-pill';
+                previewStatus.textContent = 'Empty';
+            }
+            return;
+        }
+
+        const sizeKb = (code.length / 1024).toFixed(1);
+        if (isSaved) {
+            pill.className = 'html-status-pill saved';
+            pill.textContent = `✓ Web UI Saved (${sizeKb} KB - Local & Cloud)`;
+            if (previewStatus) {
+                previewStatus.className = 'html-status-pill saved';
+                previewStatus.textContent = '✓ Saved to Note & Cloud';
+            }
+        } else {
+            pill.className = 'html-status-pill ready';
+            pill.textContent = `⚡ Web UI Ready (${sizeKb} KB - Click Save)`;
+            if (previewStatus) {
+                previewStatus.className = 'html-status-pill ready';
+                previewStatus.textContent = '⚡ Sandbox Active';
+            }
+        }
+    }
+
     // Populate topics dropdown
     renderTopicOptions();
-
-    // Check URL parameters for ?edit=articleId
-    const urlParams = new URLSearchParams(window.location.search);
-    const editId = urlParams.get('edit') || urlParams.get('id');
-    const topicParam = urlParams.get('topic');
-
-    if (editId) {
-        loadArticleForEditing(editId);
-    } else if (topicParam) {
-        // Pre-select topic
-        setTimeout(() => {
-            if (topicSelect) {
-                topicSelect.value = topicParam;
-            }
-        }, 100);
-    }
 
     /* ---- Render Topics in Dropdown ---- */
     function renderTopicOptions(selectedId = null) {
@@ -583,55 +615,12 @@ if __name__ == "__main__":
     }
 
     /* ---- Custom Interactive HTML Note Handlers ---- */
-    const noteHtmlInput = document.getElementById('article-custom-html');
-    const btnNotePaste = document.getElementById('btn-note-helper-paste');
-    const btnNoteTemplate = document.getElementById('btn-note-helper-template');
-    const btnNotePreview = document.getElementById('btn-note-helper-preview');
-    const btnNoteHelperSave = document.getElementById('btn-note-helper-save');
-    const btnNotePreviewSave = document.getElementById('btn-note-preview-save');
-    const noteHtmlStatusPill = document.getElementById('note-html-status-pill');
-    const notePreviewContainer = document.getElementById('note-html-preview-container');
-    const notePreviewFrame = document.getElementById('note-html-preview-frame');
-    const btnCloseNotePreview = document.getElementById('btn-close-note-preview');
-    const previewSandboxStatus = document.getElementById('preview-sandbox-status');
-
-    function updateNoteHtmlStatus(isSaved = false) {
-        if (!noteHtmlStatusPill) return;
-        const code = (noteHtmlInput?.value || '').trim();
-        if (!code) {
-            noteHtmlStatusPill.className = 'html-status-pill';
-            noteHtmlStatusPill.textContent = 'No HTML code added';
-            if (previewSandboxStatus) {
-                previewSandboxStatus.className = 'html-status-pill';
-                previewSandboxStatus.textContent = 'Empty';
-            }
-            return;
-        }
-
-        const sizeKb = (code.length / 1024).toFixed(1);
-        if (isSaved) {
-            noteHtmlStatusPill.className = 'html-status-pill saved';
-            noteHtmlStatusPill.textContent = `✓ Web UI Saved (${sizeKb} KB - Local & Cloud)`;
-            if (previewSandboxStatus) {
-                previewSandboxStatus.className = 'html-status-pill saved';
-                previewSandboxStatus.textContent = '✓ Saved to Note & Cloud';
-            }
-        } else {
-            noteHtmlStatusPill.className = 'html-status-pill ready';
-            noteHtmlStatusPill.textContent = `⚡ Web UI Ready (${sizeKb} KB - Click Save)`;
-            if (previewSandboxStatus) {
-                previewSandboxStatus.className = 'html-status-pill ready';
-                previewSandboxStatus.textContent = '⚡ Sandbox Active';
-            }
-        }
-    }
-
     if (noteHtmlInput) {
         noteHtmlInput.addEventListener('input', () => {
             updateNoteHtmlStatus(false);
             markDirty();
             clearTimeout(previewDebounceTimer);
-            previewDebounceTimer = setTimeout(updateLivePreview, 400);
+            previewDebounceTimer = setTimeout(updateLivePreview, 300);
         });
     }
 
@@ -670,7 +659,8 @@ if __name__ == "__main__":
         if (!noteHtmlInput || !notePreviewFrame || !notePreviewContainer) return;
         const code = noteHtmlInput.value.trim();
         if (!code) {
-            alert('Please write or paste some HTML code first!');
+            alert('Please write or paste some HTML code first into the textarea!');
+            noteHtmlInput.focus();
             return;
         }
         notePreviewFrame.srcdoc = code;
@@ -680,7 +670,9 @@ if __name__ == "__main__":
             previewSandboxStatus.className = 'html-status-pill ready';
             previewSandboxStatus.textContent = '⚡ Sandbox Active';
         }
-        notePreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => {
+            notePreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 50);
     });
 
     btnCloseNotePreview?.addEventListener('click', () => {
@@ -700,11 +692,25 @@ if __name__ == "__main__":
     btnSaveLocal.addEventListener('click', saveArticleLocally);
 
     function getFormData() {
-        const title = titleInput.value.trim();
+        let title = titleInput.value.trim();
+        const customHtml = (noteHtmlInput?.value || document.getElementById('article-custom-html')?.value || '').trim();
+        const isHtmlNote = Boolean(customHtml.length > 0);
+
         if (!title) {
-            showToast('Please enter an article title', 'warning');
-            titleInput.focus();
-            return null;
+            if (isHtmlNote) {
+                const autoPrompt = prompt('Please enter a Title for this Interactive Web UI note:', 'Interactive Deep Learning Component');
+                if (autoPrompt && autoPrompt.trim()) {
+                    title = autoPrompt.trim();
+                    titleInput.value = title;
+                    docTitle.textContent = title;
+                }
+            }
+            if (!title) {
+                showToast('Please enter an article title at the top', 'warning');
+                titleInput.focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return null;
+            }
         }
 
         const selectedOption = topicSelect.options[topicSelect.selectedIndex];
@@ -724,8 +730,6 @@ if __name__ == "__main__":
         }
 
         const primarySection = sections.find(s => s.description || s.diagram) || sections[0] || { description: '', diagram: '', diagramCaption: '' };
-        const customHtml = (document.getElementById('article-custom-html')?.value || '').trim();
-        const isHtmlNote = Boolean(customHtml.length > 0);
 
         return {
             id: currentArticleId,
@@ -1011,6 +1015,22 @@ if __name__ == "__main__":
                 }
             }
         });
+    }
+
+    // Check URL parameters and load article or preselect topic after all listeners are registered
+    const urlParams = new URLSearchParams(window.location.search);
+    const editId = urlParams.get('edit') || urlParams.get('id');
+    const topicParam = urlParams.get('topic');
+
+    if (editId) {
+        loadArticleForEditing(editId);
+    } else if (topicParam) {
+        setTimeout(() => {
+            if (topicSelect) topicSelect.value = topicParam;
+        }, 100);
+        updateNoteHtmlStatus(false);
+    } else {
+        updateNoteHtmlStatus(false);
     }
 }
 
