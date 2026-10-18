@@ -649,8 +649,8 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
             </div>
         `;
     } else {
-        notesHtml = '<div class="posts-list">';
-        articles.forEach(art => {
+        notesHtml = '<div class="posts-list" id="topic-notes-list">';
+        articles.forEach((art, index) => {
             let day = '17';
             let month = 'Oct';
             if (art.date) {
@@ -668,15 +668,26 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
                 : (diagramCount === 1 ? `<span class="mini-tag tag-diagram">📐 diagram</span>` : '');
             const hasHtml = Boolean(art.isHtmlNote || (art.customHtml && art.customHtml.trim().length > 0));
             const htmlBadge = hasHtml ? `<span class="mini-tag html-note-badge">🌐 Interactive Web App</span>` : '';
+            const orderNumStr = (index + 1).toString().padStart(2, '0');
 
             notesHtml += `
-                <a href="article.html?id=${art.id}" class="post-card">
+                <a href="article.html?id=${art.id}" class="post-card" data-article-id="${art.id}" draggable="true">
+                    <div class="note-drag-handle" title="Drag up or down to change note position" aria-label="Drag note to reorder">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
+                            <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
+                            <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+                        </svg>
+                    </div>
                     <div class="post-date">
                         <span class="post-day">${day}</span>
                         <span class="post-month">${month}</span>
                     </div>
                     <div class="post-content">
-                        <div class="post-category">${escapeHtml(topic.name)}</div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+                            <span class="note-order-badge" title="Note position in topic">#${orderNumStr}</span>
+                            <div class="post-category" style="margin-bottom: 0;">${escapeHtml(topic.name)}</div>
+                        </div>
                         <h3 class="post-title">${escapeHtml(art.title)}</h3>
                         <p class="post-excerpt">${escapeHtml(art.excerpt || '')}</p>
                         <div class="post-tags">
@@ -699,6 +710,12 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
     }
 
     container.innerHTML = html;
+
+    // Initialize drag-and-drop reordering for notes
+    const topicNotesList = container.querySelector('.posts-list');
+    if (topicNotesList && typeof HubStore.initArticleDragAndDrop === 'function') {
+        HubStore.initArticleDragAndDrop(topicNotesList, topic.id);
+    }
 
     // Load iframe content safely
     if (hasHtml && htmlInfo) {

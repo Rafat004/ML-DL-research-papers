@@ -843,6 +843,195 @@ const HubStore = (() => {
         }
     }
 
+    async function reorderArticles(orderedIds, topicIdOrSlug = null) {
+        if (!Array.isArray(orderedIds) || orderedIds.length === 0) return getArticles(topicIdOrSlug);
+
+        const raw = localStorage.getItem(STORAGE_KEY_ARTICLES);
+        const allArticles = raw ? JSON.parse(raw) : INITIAL_ARTICLES;
+
+        const idMap = new Map();
+        allArticles.forEach(a => idMap.set(a.id, a));
+
+        const now = Date.now();
+        const changedArticles = [];
+
+        orderedIds.forEach((id, idx) => {
+            const art = idMap.get(id);
+            if (art) {
+                if (art.order !== idx) {
+                    art.order = idx;
+                    art.updatedAt = now;
+                    changedArticles.push(art);
+                }
+            }
+        });
+
+        localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(allArticles));
+
+        // Sync with Firebase Firestore if connected
+        const db = getFirebaseDb();
+        if (db && changedArticles.length > 0) {
+            try {
+                const batch = db.batch();
+                changedArticles.forEach(art => {
+                    const docRef = db.collection('articles').doc(art.id);
+                    batch.set(docRef, { order: art.order, updatedAt: now }, { merge: true });
+                });
+                await batch.commit();
+            } catch (err) {
+                console.warn('[HubStore] Cloud batch update article order fallback:', err.message);
+                for (const art of changedArticles) {
+                    try {
+                        await db.collection('articles').doc(art.id).set({ order: art.order, updatedAt: now }, { merge: true });
+                    } catch (e) {}
+                }
+            }
+        }
+
+        return getArticles(topicIdOrSlug);
+    }
+
+    /* ---- Drag & Drop Note Cards Reordering (Slide style) ---- */
+    let suppressNoteClick = false;
+
+    function initArticleDragAndDrop(container, topicIdOrSlug = null, callback = null) {
+        if (!container) return;
+
+        let draggedCard = null;
+        const cards = container.querySelectorAll('.post-card');
+
+        cards.forEach(card => {
+            card.setAttribute('draggable', 'true');
+
+            // Drag Start
+            card.addEventListener('dragstart', (e) => {
+                draggedCard = card;
+                suppressNoteClick = true;
+                card.classList.add('is-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', card.getAttribute('data-article-id') || '');
+
+                setTimeout(() => {
+                    if (draggedCard === card) {
+                        card.style.opacity = '0.35';
+                    }
+                }, 0);
+            });
+
+            // Drag Over
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (!draggedCard || draggedCard === card) return;
+
+                const rect = card.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+
+                if (e.clientY < midY) {
+                    card.classList.add('drop-before-note');
+                    card.classList.remove('drop-after-note');
+                } else {
+                    card.classList.add('drop-after-note');
+                    card.classList.remove('drop-before-note');
+                }
+            });
+
+            // Drag Leave
+            card.addEventListener('dragleave', (e) => {
+                if (!card.contains(e.relatedTarget)) {
+                    card.classList.remove('drop-before-note', 'drop-after-note');
+                }
+            });
+
+            // Drop
+            card.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (!draggedCard || draggedCard === card) {
+                    cleanupNoteDragStyles();
+                    return;
+                }
+
+                const isBefore = card.classList.contains('drop-before-note');
+                cleanupNoteDragStyles();
+
+                // Re-insert dragged note in DOM
+                if (isBefore) {
+                    container.insertBefore(draggedCard, card);
+                } else {
+                    container.insertBefore(draggedCard, card.nextSibling);
+                }
+
+                // Immediately re-serialize #01, #02, #03... badges on all note cards
+                const currentCards = container.querySelectorAll('.post-card');
+                const newOrderedIds = [];
+                let newMovedIndex = -1;
+                const movedArticleId = draggedCard.getAttribute('data-article-id');
+                const movedArticleTitle = draggedCard.querySelector('.post-title')?.textContent?.trim() || 'Note';
+
+                currentCards.forEach((c, index) => {
+                    const id = c.getAttribute('data-article-id');
+                    if (id) newOrderedIds.push(id);
+                    if (id === movedArticleId) {
+                        newMovedIndex = index;
+                    }
+                    const badgeEl = c.querySelector('.note-order-badge');
+                    if (badgeEl) {
+                        const newNumStr = '#' + (index + 1).toString().padStart(2, '0');
+                        if (badgeEl.textContent !== newNumStr) {
+                            badgeEl.textContent = newNumStr;
+                            badgeEl.classList.remove('updated-pulse');
+                            void badgeEl.offsetWidth; // Trigger reflow for animation
+                            badgeEl.classList.add('updated-pulse');
+                        }
+                    }
+                });
+
+                // Persist the new sequence in LocalStorage and Firebase Cloud
+                try {
+                    await reorderArticles(newOrderedIds, topicIdOrSlug);
+                    const serialStr = '#' + (newMovedIndex + 1).toString().padStart(2, '0');
+                    showTopicReorderToast(`Moved "${movedArticleTitle}" to position ${serialStr}`);
+                    if (typeof callback === 'function') {
+                        callback(newOrderedIds);
+                    }
+                } catch (err) {
+                    console.warn('Error saving article order:', err);
+                }
+            });
+
+            // Drag End
+            card.addEventListener('dragend', () => {
+                cleanupNoteDragStyles();
+                // Block navigation click after drag
+                setTimeout(() => {
+                    suppressNoteClick = false;
+                    draggedCard = null;
+                }, 200);
+            });
+
+            // Prevent link navigation if drag occurred
+            card.addEventListener('click', (e) => {
+                if (suppressNoteClick) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
+        });
+
+        function cleanupNoteDragStyles() {
+            if (draggedCard) {
+                draggedCard.classList.remove('is-dragging');
+                draggedCard.style.opacity = '';
+            }
+            container.querySelectorAll('.post-card').forEach(c => {
+                c.classList.remove('drop-before-note', 'drop-after-note', 'is-dragging');
+                c.style.opacity = '';
+            });
+        }
+    }
+
     /* ---- Articles Storage ---- */
     function getArticles(topicIdOrSlug = null) {
         try {
@@ -861,8 +1050,13 @@ const HubStore = (() => {
                 articles = articles.filter(a => a.topicId === topicIdOrSlug || a.topicSlug === topicIdOrSlug);
             }
 
-            // Sort newest first
-            return articles.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            // Sort by order ascending if defined, then newest first
+            return articles.sort((a, b) => {
+                const orderA = (typeof a.order === 'number' && !isNaN(a.order)) ? a.order : 999999;
+                const orderB = (typeof b.order === 'number' && !isNaN(b.order)) ? b.order : 999999;
+                if (orderA !== orderB) return orderA - orderB;
+                return (b.createdAt || 0) - (a.createdAt || 0);
+            });
         } catch (e) {
             console.error('Error reading articles:', e);
             return [];
@@ -977,6 +1171,9 @@ const HubStore = (() => {
             topicName: articleData.topicName || 'General',
             topicSlug: slugify(articleData.topicName || 'general'),
             date: dateStr,
+            order: existingIndex >= 0 && typeof articles[existingIndex].order === 'number'
+                   ? articles[existingIndex].order
+                   : (typeof articleData.order === 'number' ? articleData.order : 0),
             excerpt: primaryExcerpt,
             tags: tags,
             content: articleData.content || '',
@@ -1528,6 +1725,8 @@ const HubStore = (() => {
         getTopicHtmlInfo,
         getStarterHtmlTemplate,
         initTopicDragAndDrop,
-        showTopicReorderToast
+        showTopicReorderToast,
+        reorderArticles,
+        initArticleDragAndDrop
     };
 })();

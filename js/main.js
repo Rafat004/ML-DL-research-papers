@@ -204,7 +204,7 @@ function renderRecentPosts() {
     const recent = articles.slice(0, 6);
     let html = '';
 
-    recent.forEach(art => {
+    recent.forEach((art, index) => {
         let day = '17';
         let month = 'Oct';
         if (art.date) {
@@ -215,21 +215,33 @@ function renderRecentPosts() {
             } catch (e) {}
         }
 
+        const tagsHtml = (art.tags || []).map(t => `<span class="mini-tag">#${escapeHtml(t)}</span>`).join('');
         const diagramCount = art.sections ? art.sections.filter(s => s.diagram).length : (art.diagram ? 1 : 0);
         const diagramBadge = diagramCount > 1 
             ? `<span class="mini-tag tag-diagram">📐 ${diagramCount} diagrams</span>` 
             : (diagramCount === 1 ? `<span class="mini-tag tag-diagram">📐 diagram</span>` : '');
         const hasHtml = Boolean(art.isHtmlNote || (art.customHtml && art.customHtml.trim().length > 0));
         const htmlBadge = hasHtml ? `<span class="mini-tag html-note-badge">🌐 Interactive Web App</span>` : '';
+        const orderNumStr = (index + 1).toString().padStart(2, '0');
 
         html += `
-            <a href="article.html?id=${art.id}" class="post-card" id="post-${art.id}">
+            <a href="article.html?id=${art.id}" class="post-card" id="post-${art.id}" data-article-id="${art.id}" draggable="true">
+                <div class="note-drag-handle" title="Drag up or down to change note position" aria-label="Drag note to reorder">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
+                        <circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/>
+                        <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+                    </svg>
+                </div>
                 <div class="post-date">
                     <span class="post-day">${day}</span>
                     <span class="post-month">${month}</span>
                 </div>
                 <div class="post-content">
-                    <div class="post-category">${escapeHtml(art.topicName || 'General')}</div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+                        <span class="note-order-badge" title="Note sequence">#${orderNumStr}</span>
+                        <div class="post-category" style="margin-bottom: 0;">${escapeHtml(art.topicName || 'General')}</div>
+                    </div>
                     <h3 class="post-title">${escapeHtml(art.title)}</h3>
                     <p class="post-excerpt">${escapeHtml(art.excerpt || '')}</p>
                     <div class="post-tags">
@@ -244,6 +256,11 @@ function renderRecentPosts() {
     });
 
     list.innerHTML = html;
+
+    // Initialize note drag and drop reordering
+    if (typeof HubStore !== 'undefined' && typeof HubStore.initArticleDragAndDrop === 'function') {
+        HubStore.initArticleDragAndDrop(list);
+    }
 }
 
 /* ---- Home Topic Creation Modal ---- */
