@@ -14,13 +14,10 @@ function initEditor() {
     const topicSelect = document.getElementById('topic-select');
     const tagsInput = document.getElementById('article-tags');
     const dateInput = document.getElementById('article-date');
-    const excerptInput = document.getElementById('article-excerpt');
-    const mdInput = document.getElementById('markdown-input');
-    const previewContent = document.getElementById('preview-content');
     const docTitle = document.getElementById('editor-doc-title');
     const statusText = document.getElementById('status-text');
 
-    // Multi-slot Description & Architecture Diagram state (3 slots)
+    // Multi-slot State (3 slots: Description, Diagram, Note Content)
     const slotCount = 3;
     const currentDiagrams = ['', '', ''];
 
@@ -28,7 +25,6 @@ function initEditor() {
     const btnSaveLocal = document.getElementById('btn-save-local');
     const btnPublishGithub = document.getElementById('btn-publish-github');
     const btnDownloadMd = document.getElementById('btn-download-md');
-    const btnInsertTemplate = document.getElementById('btn-insert-template');
 
     // Modals
     const modalTopic = document.getElementById('modal-new-topic');
@@ -134,12 +130,16 @@ function initEditor() {
         renderTopicOptions(article.topicId);
         tagsInput.value = (article.tags || []).join(', ');
         dateInput.value = article.date || new Date().toISOString().split('T')[0];
-        mdInput.value = article.content || '';
 
-        // Normalize sections from article (at least 1 or up to 3)
+        // Normalize sections from article (at least 1 or up to 3 slots)
         const sections = Array.isArray(article.sections) && article.sections.length > 0
             ? article.sections
-            : [{ description: article.excerpt || '', diagram: article.diagram || '', diagramCaption: article.diagramCaption || '' }];
+            : [{ 
+                description: article.excerpt || '', 
+                diagram: article.diagram || '', 
+                diagramCaption: article.diagramCaption || '',
+                content: article.content || ''
+            }];
 
         for (let i = 1; i <= slotCount; i++) {
             const sec = sections[i - 1];
@@ -147,10 +147,15 @@ function initEditor() {
             const urlInput = document.getElementById(`diagram-url-input-${i}`);
             const captionInput = document.getElementById(`diagram-caption-input-${i}`);
             const previewCard = document.getElementById(`diagram-preview-card-${i}`);
+            const mdInputEl = document.getElementById(`markdown-input-${i}`);
 
             if (sec) {
                 if (excerptInput) excerptInput.value = sec.description || '';
                 if (captionInput) captionInput.value = sec.diagramCaption || '';
+                if (mdInputEl) {
+                    const slotText = sec.content !== undefined ? sec.content : (i === 1 ? (article.content || '') : '');
+                    mdInputEl.value = slotText;
+                }
                 if (sec.diagram) {
                     currentDiagrams[i - 1] = sec.diagram;
                     if (urlInput && (sec.diagram.startsWith('http://') || sec.diagram.startsWith('https://'))) {
@@ -165,9 +170,11 @@ function initEditor() {
                 if (excerptInput) excerptInput.value = '';
                 if (captionInput) captionInput.value = '';
                 if (urlInput) urlInput.value = '';
+                if (mdInputEl) mdInputEl.value = '';
                 currentDiagrams[i - 1] = '';
                 if (previewCard) previewCard.style.display = 'none';
             }
+            updateSlotLivePreview(i);
         }
 
         const customHtmlInput = document.getElementById('article-custom-html');
@@ -178,96 +185,30 @@ function initEditor() {
             updateNoteHtmlStatus(Boolean(article.customHtml && article.customHtml.trim()));
         }
 
-        updateLivePreview();
         statusText.textContent = 'Loaded';
     }
 
-    /* ---- Live Preview Updating ---- */
-    let previewDebounceTimer = null;
-    function updateLivePreview() {
-        const raw = mdInput.value;
-        const title = titleInput.value.trim();
-        const customHtml = (document.getElementById('article-custom-html')?.value || '').trim();
+    /* ---- Slot-specific Live Preview Updating ---- */
+    const previewDebounceTimers = [null, null, null, null];
 
-        // Collect all non-empty slots
-        const activeSlots = [];
-        for (let i = 1; i <= slotCount; i++) {
-            const desc = document.getElementById(`article-excerpt-${i}`)?.value.trim() || '';
-            const diag = currentDiagrams[i - 1] || '';
-            const cap = document.getElementById(`diagram-caption-input-${i}`)?.value.trim() || `Figure ${i}: Architecture diagram`;
-            if (desc || diag) {
-                activeSlots.push({ slot: i, desc, diag, cap });
-            }
-        }
+    function updateSlotLivePreview(slot) {
+        const inputEl = document.getElementById(`markdown-input-${slot}`);
+        const previewEl = document.getElementById(`preview-content-${slot}`);
+        if (!inputEl || !previewEl) return;
 
-        if (!raw.trim() && !title && activeSlots.length === 0 && !customHtml) {
-            previewContent.innerHTML = '<p class="preview-placeholder">Live preview will render here as you type...</p>';
+        const raw = inputEl.value;
+        if (!raw.trim()) {
+            previewEl.innerHTML = `<p class="preview-placeholder">Live preview for Part ${slot} will render here as you type...</p>`;
             return;
         }
 
-        let headerHtml = '';
-        if (title) {
-            headerHtml += `<h1 class="preview-title">${escapeHtml(title)}</h1>`;
-        }
-
-        let customHtmlPreview = '';
-        if (customHtml) {
-            customHtmlPreview = `
-                <div class="editor-live-webui-card">
-                    <div class="editor-live-webui-header">
-                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                            <span>🌐 Interactive Web UI Preview</span>
-                            <span class="mini-tag html-note-badge" style="font-size: 0.65rem;">Active Sandbox</span>
-                        </div>
-                        <span style="font-size: 0.72rem; color: #9caec8;">Renders at top of published note</span>
-                    </div>
-                    <iframe class="editor-live-webui-iframe" id="split-preview-iframe" title="Interactive Web UI Preview" sandbox="allow-scripts allow-forms allow-same-origin allow-modals"></iframe>
-                </div>
-            `;
-        }
-
-        let sectionsHtml = '';
-        if (activeSlots.length > 0) {
-            activeSlots.forEach(item => {
-                if (item.desc) {
-                    const label = activeSlots.length > 1 ? `Description ${item.slot}:` : 'Description:';
-                    sectionsHtml += `
-                        <div class="article-abstract-card">
-                            <div class="abstract-label">${label}</div>
-                            <p class="abstract-text">${escapeHtml(item.desc)}</p>
-                        </div>
-                    `;
-                }
-                if (item.diag) {
-                    sectionsHtml += `
-                        <section class="article-diagram-wrapper" style="margin: 1.25rem 0 1.75rem;">
-                            <div class="diagram-display-card">
-                                <div class="diagram-tag">📐 Architecture Diagram ${activeSlots.length > 1 ? `#${item.slot}` : ''}</div>
-                                <div class="diagram-image-container">
-                                    <img src="${item.diag}" alt="Architecture Diagram ${item.slot}" style="max-height: 380px; max-width: 100%; border-radius: 6px;">
-                                </div>
-                                <p class="diagram-caption">${escapeHtml(item.cap)}</p>
-                            </div>
-                        </section>
-                    `;
-                }
-            });
-        }
-
         const html = HubStore.renderMarkdown(raw);
-        previewContent.innerHTML = headerHtml + customHtmlPreview + sectionsHtml + html;
-
-        if (customHtml) {
-            const splitIframe = previewContent.querySelector('#split-preview-iframe');
-            if (splitIframe) {
-                splitIframe.srcdoc = customHtml;
-            }
-        }
+        previewEl.innerHTML = html;
 
         // Render KaTeX math formulas
         if (typeof renderMathInElement === 'function') {
             try {
-                renderMathInElement(previewContent, {
+                renderMathInElement(previewEl, {
                     delimiters: [
                         { left: '$$', right: '$$', display: true },
                         { left: '$', right: '$', display: false }
@@ -275,19 +216,19 @@ function initEditor() {
                     throwOnError: false
                 });
             } catch (e) {
-                console.warn('KaTeX render error:', e);
+                console.warn(`KaTeX render error (Slot ${slot}):`, e);
             }
         }
 
         // Highlight code with Prism.js
         if (typeof Prism !== 'undefined') {
-            Prism.highlightAllUnder(previewContent);
+            Prism.highlightAllUnder(previewEl);
         }
 
         // Attach copy button listeners inside preview
-        previewContent.querySelectorAll('.copy-btn').forEach(btn => {
+        previewEl.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const pre = btn.closest('.code-block-wrapper').querySelector('code');
+                const pre = btn.closest('.code-block-wrapper')?.querySelector('code');
                 if (pre) {
                     await navigator.clipboard.writeText(pre.textContent);
                     btn.textContent = 'Copied!';
@@ -297,19 +238,19 @@ function initEditor() {
         });
     }
 
-    function scheduleLivePreview() {
-        clearTimeout(previewDebounceTimer);
-        previewDebounceTimer = setTimeout(updateLivePreview, 120);
+    function scheduleSlotLivePreview(slot) {
+        clearTimeout(previewDebounceTimers[slot]);
+        previewDebounceTimers[slot] = setTimeout(() => updateSlotLivePreview(slot), 120);
     }
 
-    mdInput.addEventListener('input', () => {
-        scheduleLivePreview();
-        markDirty();
-    });
+    function updateAllSlotPreviews() {
+        for (let i = 1; i <= slotCount; i++) {
+            updateSlotLivePreview(i);
+        }
+    }
 
     titleInput.addEventListener('input', () => {
         docTitle.textContent = titleInput.value.trim() || 'New Research Note';
-        scheduleLivePreview();
         markDirty();
     });
 
@@ -336,19 +277,23 @@ function initEditor() {
         document.getElementById('editor-status-badge').classList.remove('dirty');
     }
 
-    /* ---- Toolbar Actions ---- */
-    document.querySelectorAll('.tool-btn').forEach(btn => {
+    /* ---- Toolbar Actions (Routed to Respective Slot) ---- */
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         btn.addEventListener('click', () => {
             const tool = btn.dataset.tool;
+            const slot = parseInt(btn.dataset.slot || '1', 10);
             if (!tool) return;
-            handleToolbarAction(tool);
+            handleToolbarAction(tool, slot);
         });
     });
 
-    function handleToolbarAction(action) {
-        const start = mdInput.selectionStart;
-        const end = mdInput.selectionEnd;
-        const selected = mdInput.value.substring(start, end);
+    function handleToolbarAction(action, slot = 1) {
+        const targetTextarea = document.getElementById(`markdown-input-${slot}`);
+        if (!targetTextarea) return;
+
+        const start = targetTextarea.selectionStart;
+        const end = targetTextarea.selectionEnd;
+        const selected = targetTextarea.value.substring(start, end);
         let replacement = '';
         let cursorOffset = 0;
 
@@ -399,48 +344,49 @@ function initEditor() {
                 break;
         }
 
-        mdInput.focus();
-        mdInput.setRangeText(replacement, start, end, 'end');
-        updateLivePreview();
+        targetTextarea.focus();
+        targetTextarea.setRangeText(replacement, start, end, 'end');
+        updateSlotLivePreview(slot);
         markDirty();
     }
 
-    /* ---- Insert Academic DL Template ---- */
-    if (btnInsertTemplate) {
-        btnInsertTemplate.addEventListener('click', () => {
-            const title = titleInput.value.trim() || 'Architecture Concept';
-            const template = `## 1. Problem Formulation & Intuition
+    /* ---- Deep Learning Templates for Each Slot ---- */
+    function getSlotTemplate(slot, title) {
+        const cleanTitle = title || 'CustomModule';
+        const className = cleanTitle.replace(/[^a-zA-Z0-9]/g, '') || 'CustomModule';
+
+        if (slot === 1) {
+            return `## 1. Problem Formulation & Theoretical Motivation
 
 Explain the core motivation behind this architecture or algorithm. Why is it needed, and what limitations of previous approaches does it solve?
 
 > [!KEY INSIGHT]
-> Summarize the central idea in a single punchy takeaway sentence.
+> State the central architectural intuition in a single punchy takeaway.
 
 ---
 
-## 2. Mathematical Derivation
+## 2. Mathematical Foundations
 
-Formulate the mathematical foundation rigorously.
+Formulate the mathematical foundation rigorously:
 
 $$\\mathcal{L}_{total} = \\mathcal{L}_{task} + \\lambda \\mathcal{L}_{reg}$$
 
 Where:
-- $x \\in \\mathbb{R}^{d_{in}}$ denotes the input representations.
+- $x \\in \\mathbb{R}^{B \\times d_{in}}$ denotes the batch of input representations.
 - $W \\in \\mathbb{R}^{d_{out} \\times d_{in}}$ represents the learnable projection weights.
 - $\\sigma(\\cdot)$ denotes the non-linear activation function.
-
----
-
-## 3. PyTorch Implementation
+`;
+        } else if (slot === 2) {
+            return `## 3. Detailed Component Architecture & PyTorch Implementation
 
 \`\`\`python
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class ${title.replace(/\s+/g, '') || 'CustomModule'}(nn.Module):
+class ${className}(nn.Module):
     """
-    Implementation of ${title}.
+    Detailed module implementation for ${cleanTitle}.
     """
     def __init__(self, d_model=512, dropout=0.1):
         super().__init__()
@@ -459,46 +405,42 @@ class ${title.replace(/\s+/g, '') || 'CustomModule'}(nn.Module):
 # Quick tensor shape verification
 if __name__ == "__main__":
     dummy_input = torch.randn(8, 64, 512)
-    model = ${title.replace(/\s+/g, '') || 'CustomModule'}(d_model=512)
+    model = ${className}(d_model=512)
     output = model(dummy_input)
     print("Output shape:", output.shape)  # torch.Size([8, 64, 512])
 \`\`\`
-
----
-
-## 4. Key Takeaways & Empirical Gotchas
+`;
+        } else {
+            return `## 4. Training Dynamics, Hyperparameters & Empirical Takeaways
 
 - **Initialization:** Be mindful of variance scaling when initializing layer weights.
 - **Complexity:** Time complexity scales as $\\mathcal{O}(N)$ or $\\mathcal{O}(N^2)$ with respect to sequence length.
+- **Optimization:** Use AdamW with linear warmup and cosine decay scheduler.
 - **Failure Modes:** Watch out for exploding activations without proper layer normalization.
 `;
-            if (mdInput.value.trim() && !confirm('Insert template and append to your current document?')) {
-                return;
-            }
-
-            mdInput.value = mdInput.value ? `${mdInput.value}\n\n${template}` : template;
-            updateLivePreview();
-            markDirty();
-            showToast('Deep learning note template inserted!', 'info');
-        });
+        }
     }
 
-    /* ---- View Toggles: Split, Write, Preview ---- */
-    const workspace = document.getElementById('editor-workspace');
+    /* ---- View Toggles: Split, Write, Preview per Slot ---- */
     document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const view = btn.dataset.view;
+            const slot = btn.dataset.slot || '1';
+            const view = btn.dataset.view || 'split';
 
-            workspace.classList.remove('split-view', 'edit-only', 'preview-only');
-            if (view === 'split') workspace.classList.add('split-view');
-            else if (view === 'edit') workspace.classList.add('edit-only');
-            else if (view === 'preview') workspace.classList.add('preview-only');
+            document.querySelectorAll(`.view-btn[data-slot="${slot}"]`).forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const workspace = document.getElementById(`editor-workspace-${slot}`);
+            if (workspace) {
+                workspace.classList.remove('split-view', 'edit-only', 'preview-only');
+                if (view === 'split') workspace.classList.add('split-view');
+                else if (view === 'edit') workspace.classList.add('edit-only');
+                else if (view === 'preview') workspace.classList.add('preview-only');
+            }
         });
     });
 
-    /* ---- Diagram File Upload & Drag and Drop for All 3 Slots ---- */
+    /* ---- Diagram File Upload, Templates & Handlers for All 3 Slots ---- */
     for (let slot = 1; slot <= slotCount; slot++) {
         setupSlotHandlers(slot);
     }
@@ -512,11 +454,35 @@ if __name__ == "__main__":
         const previewCaption = document.getElementById(`diagram-preview-caption-${slot}`);
         const btnRemove = document.getElementById(`btn-remove-diagram-${slot}`);
         const excerptInput = document.getElementById(`article-excerpt-${slot}`);
+        const mdInputEl = document.getElementById(`markdown-input-${slot}`);
+        const btnTemplate = document.getElementById(`btn-insert-template-${slot}`);
 
         if (excerptInput) {
             excerptInput.addEventListener('input', () => {
-                scheduleLivePreview();
                 markDirty();
+            });
+        }
+
+        if (mdInputEl) {
+            mdInputEl.addEventListener('input', () => {
+                scheduleSlotLivePreview(slot);
+                markDirty();
+            });
+        }
+
+        if (btnTemplate) {
+            btnTemplate.addEventListener('click', () => {
+                const title = titleInput.value.trim() || 'Architecture Concept';
+                const template = getSlotTemplate(slot, title);
+                if (mdInputEl && mdInputEl.value.trim() && !confirm(`Insert Deep Learning template for Part ${slot} and append to current content?`)) {
+                    return;
+                }
+                if (mdInputEl) {
+                    mdInputEl.value = mdInputEl.value.trim() ? `${mdInputEl.value}\n\n${template}` : template;
+                    updateSlotLivePreview(slot);
+                    markDirty();
+                    showToast(`DL template inserted into Part ${slot}!`, 'info');
+                }
             });
         }
 
@@ -556,7 +522,6 @@ if __name__ == "__main__":
                 } else {
                     if (previewCard) previewCard.style.display = 'none';
                 }
-                scheduleLivePreview();
                 markDirty();
             });
         }
@@ -566,7 +531,6 @@ if __name__ == "__main__":
                 if (previewCaption) {
                     previewCaption.textContent = captionInput.value.trim() || `Figure ${slot}: Architecture diagram`;
                 }
-                scheduleLivePreview();
                 markDirty();
             });
         }
@@ -577,7 +541,6 @@ if __name__ == "__main__":
                 if (urlInput) urlInput.value = '';
                 if (fileInput) fileInput.value = '';
                 if (previewCard) previewCard.style.display = 'none';
-                scheduleLivePreview();
                 markDirty();
                 showToast(`Diagram ${slot} removed`, 'info');
             });
@@ -594,7 +557,6 @@ if __name__ == "__main__":
         reader.onload = (e) => {
             currentDiagrams[slot - 1] = e.target.result;
             displayDiagramPreview(slot, currentDiagrams[slot - 1]);
-            scheduleLivePreview();
             markDirty();
             showToast(`Diagram ${slot} image loaded successfully`, 'success');
         };
@@ -619,8 +581,6 @@ if __name__ == "__main__":
         noteHtmlInput.addEventListener('input', () => {
             updateNoteHtmlStatus(false);
             markDirty();
-            clearTimeout(previewDebounceTimer);
-            previewDebounceTimer = setTimeout(updateLivePreview, 300);
         });
     }
 
@@ -632,7 +592,6 @@ if __name__ == "__main__":
                 noteHtmlInput.focus();
                 updateNoteHtmlStatus(false);
                 markDirty();
-                updateLivePreview();
                 showToast('Pasted HTML code from clipboard', 'info');
             }
         } catch (e) {
@@ -651,7 +610,6 @@ if __name__ == "__main__":
             : `<!DOCTYPE html><html><body><h1>${title}</h1></body></html>`;
         updateNoteHtmlStatus(false);
         markDirty();
-        updateLivePreview();
         showToast('Loaded Interactive Roadmap starter template', 'success');
     });
 
@@ -722,14 +680,21 @@ if __name__ == "__main__":
             const desc = document.getElementById(`article-excerpt-${i}`)?.value || '';
             const diag = currentDiagrams[i - 1] || '';
             const cap = document.getElementById(`diagram-caption-input-${i}`)?.value || '';
+            const content = document.getElementById(`markdown-input-${i}`)?.value || '';
             sections.push({
                 description: desc.trim(),
                 diagram: diag,
-                diagramCaption: cap.trim()
+                diagramCaption: cap.trim(),
+                content: content
             });
         }
 
-        const primarySection = sections.find(s => s.description || s.diagram) || sections[0] || { description: '', diagram: '', diagramCaption: '' };
+        const primarySection = sections.find(s => s.description || s.diagram || s.content) || sections[0] || { description: '', diagram: '', diagramCaption: '', content: '' };
+
+        const combinedContent = sections
+            .map(s => (s.content || '').trim())
+            .filter(Boolean)
+            .join('\n\n---\n\n');
 
         return {
             id: currentArticleId,
@@ -738,8 +703,8 @@ if __name__ == "__main__":
             topicName: topicName,
             date: dateInput.value || new Date().toISOString().split('T')[0],
             tags: tagsInput.value,
-            excerpt: primarySection.description,
-            content: mdInput.value,
+            excerpt: primarySection.description || (typeof HubStore !== 'undefined' && typeof HubStore.generateExcerpt === 'function' ? HubStore.generateExcerpt(combinedContent) : ''),
+            content: combinedContent,
             diagram: primarySection.diagram,
             diagramCaption: primarySection.diagramCaption,
             sections: sections,
@@ -853,11 +818,21 @@ if __name__ == "__main__":
         }
     });
 
-    /* ---- Keyboard Shortcut: Ctrl+S / Cmd+S ---- */
+    /* ---- Keyboard Shortcut: Ctrl+S (Save) & Ctrl+B / Ctrl+I (Formatting) ---- */
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
             saveArticleLocally();
+            return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'i')) {
+            const activeEl = document.activeElement;
+            if (activeEl && activeEl.id && activeEl.id.startsWith('markdown-input-')) {
+                const slot = parseInt(activeEl.id.replace('markdown-input-', ''), 10);
+                e.preventDefault();
+                handleToolbarAction(e.key === 'b' ? 'bold' : 'italic', slot);
+            }
         }
     });
 
@@ -1029,8 +1004,10 @@ if __name__ == "__main__":
             if (topicSelect) topicSelect.value = topicParam;
         }, 100);
         updateNoteHtmlStatus(false);
+        updateAllSlotPreviews();
     } else {
         updateNoteHtmlStatus(false);
+        updateAllSlotPreviews();
     }
 }
 

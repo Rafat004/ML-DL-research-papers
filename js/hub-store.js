@@ -1113,7 +1113,8 @@ const HubStore = (() => {
                 {
                     description: article.excerpt || '',
                     diagram: article.diagram || '',
-                    diagramCaption: article.diagramCaption || ''
+                    diagramCaption: article.diagramCaption || '',
+                    content: article.content || ''
                 }
             ];
         }
@@ -1184,7 +1185,8 @@ const HubStore = (() => {
                 {
                     description: (articleData.excerpt || '').trim(),
                     diagram: articleData.diagram || '',
-                    diagramCaption: (articleData.diagramCaption || '').trim()
+                    diagramCaption: (articleData.diagramCaption || '').trim(),
+                    content: articleData.content || ''
                 }
             ];
         }
@@ -1198,12 +1200,18 @@ const HubStore = (() => {
                     console.warn(`Error uploading diagram ${i + 1}:`, e);
                 }
             }
+            if (typeof sections[i].content !== 'string') {
+                sections[i].content = '';
+            }
         }
 
-        const primarySection = sections.find(s => s.description || s.diagram) || sections[0] || { description: '', diagram: '', diagramCaption: '' };
+        const primarySection = sections.find(s => s.description || s.diagram || s.content) || sections[0] || { description: '', diagram: '', diagramCaption: '', content: '' };
         const primaryDiagram = primarySection.diagram || articleData.diagram || '';
         const primaryCaption = primarySection.diagramCaption || (articleData.diagramCaption || '').trim();
-        const primaryExcerpt = primarySection.description || (articleData.excerpt || '').trim() || generateExcerpt(articleData.content || '');
+        const combinedContent = (articleData.content && articleData.content.trim())
+            ? articleData.content
+            : sections.map(s => (s.content || '').trim()).filter(Boolean).join('\n\n---\n\n');
+        const primaryExcerpt = primarySection.description || (articleData.excerpt || '').trim() || generateExcerpt(combinedContent || '');
 
         const articleRecord = {
             id: artId,
@@ -1218,7 +1226,7 @@ const HubStore = (() => {
                    : (typeof articleData.order === 'number' ? articleData.order : (articles.length > 0 ? Math.max(...articles.map(a => typeof a.order === 'number' ? a.order : 0)) + 1 : 0)),
             excerpt: primaryExcerpt,
             tags: tags,
-            content: articleData.content || '',
+            content: combinedContent,
             diagram: primaryDiagram,
             diagramCaption: primaryCaption,
             sections: sections,
@@ -1590,16 +1598,41 @@ const HubStore = (() => {
     }
 
     function downloadMarkdown(article) {
+        const sections = Array.isArray(article.sections) && article.sections.length > 0
+            ? article.sections
+            : [{ description: article.excerpt || '', diagram: article.diagram || '', diagramCaption: article.diagramCaption || '', content: article.content || '' }];
+
+        let bodyMd = '';
+        const activeSections = sections.filter(s => (s.description && s.description.trim()) || s.diagram || (s.content && s.content.trim()));
+
+        if (activeSections.length > 1) {
+            bodyMd = activeSections.map((sec, idx) => {
+                let secText = `## Part ${idx + 1}\n\n`;
+                if (sec.description && sec.description.trim()) {
+                    secText += `> ${sec.description.trim()}\n\n`;
+                }
+                if (sec.diagram) {
+                    secText += `![${sec.diagramCaption || `Figure ${idx + 1}: Architecture diagram`}](${sec.diagram})\n*${sec.diagramCaption || `Figure ${idx + 1}` }*\n\n`;
+                }
+                if (sec.content && sec.content.trim()) {
+                    secText += `${sec.content.trim()}\n\n`;
+                }
+                return secText;
+            }).join('---\n\n');
+        } else {
+            bodyMd = article.content || (activeSections[0] && activeSections[0].content) || '';
+        }
+
         const frontmatter = [
             '---',
-            `title: "${article.title.replace(/"/g, '\\"')}"`,
-            `date: "${article.date}"`,
-            `topic: "${article.topicName.replace(/"/g, '\\"')}"`,
-            `tags: [${article.tags.map(t => `"${t}"`).join(', ')}]`,
+            `title: "${(article.title || '').replace(/"/g, '\\"')}"`,
+            `date: "${article.date || ''}"`,
+            `topic: "${(article.topicName || '').replace(/"/g, '\\"')}"`,
+            `tags: [${(article.tags || []).map(t => `"${t}"`).join(', ')}]`,
             `excerpt: "${(article.excerpt || '').replace(/"/g, '\\"')}"`,
             '---',
             '',
-            article.content
+            bodyMd
         ].join('\n');
 
         const blob = new Blob([frontmatter], { type: 'text/markdown;charset=utf-8' });

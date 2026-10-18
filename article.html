@@ -102,28 +102,9 @@
 
                     <div class="article-tags-list" id="article-tags-list"></div>
 
-                    <!-- Dynamic Descriptions & Architecture Diagrams Container -->
-                    <div class="article-sections-container" id="article-sections-container">
-                        <!-- Fallback / Legacy Abstract -->
-                        <div class="article-abstract-card" id="article-abstract" style="display: none;">
-                            <div class="abstract-label">Description:</div>
-                            <p class="abstract-text" id="article-abstract-text"></p>
-                        </div>
-                    </div>
                 </header>
 
-                <!-- Fallback / Legacy Diagram Section -->
-                <section class="article-diagram-wrapper" id="article-diagram-wrapper" style="display: none;">
-                    <div class="diagram-display-card">
-                        <div class="diagram-tag">📐 Architecture Diagram</div>
-                        <div class="diagram-image-container">
-                            <img id="article-diagram-img" src="" alt="Architecture Diagram" class="diagram-zoomable">
-                        </div>
-                        <p class="diagram-caption" id="article-diagram-caption">Figure 1: Architecture diagram</p>
-                    </div>
-                </section>
-
-                <!-- Article Body (Rendered Markdown, KaTeX, Prism) -->
+                <!-- Article Body: Dynamic repeating parts (Description -> Architecture Diagram -> Note Content), then Interactive Web UI at last -->
                 <article class="article-body" id="article-body">
                     <p class="article-loading-text">Loading research content...</p>
                 </article>
@@ -203,9 +184,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="js/firebase-config.js?v=2.2"></script>
-    <script src="js/hub-store.js?v=2.2"></script>
-    <script src="js/article.js?v=2.2"></script>
-    <script src="js/main.js?v=2.2"></script>
+    <script src="js/firebase-config.js?v=2.3"></script>
+    <script src="js/hub-store.js?v=2.3"></script>
+    <script src="js/article.js?v=2.3"></script>
+    <script src="js/main.js?v=2.3"></script>
 </body>
 </html>

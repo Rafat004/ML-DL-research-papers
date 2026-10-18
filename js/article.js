@@ -59,7 +59,22 @@ function initArticleViewer() {
     }
 
     // Reading time calculation (~200 words per minute)
-    const wordCount = (article.content || '').split(/\s+/).filter(Boolean).length;
+    const rawSections = Array.isArray(article.sections) && article.sections.length > 0
+        ? article.sections
+        : [{ 
+            description: article.excerpt || '', 
+            diagram: article.diagram || '', 
+            diagramCaption: article.diagramCaption || '',
+            content: article.content || ''
+        }];
+
+    // Fallback for legacy articles where content was only stored on article root
+    if (rawSections[0] && !rawSections[0].content && article.content) {
+        rawSections[0].content = article.content;
+    }
+
+    const allWords = (article.content || '') + ' ' + rawSections.map(s => (s.description || '') + ' ' + (s.content || '')).join(' ');
+    const wordCount = allWords.split(/\s+/).filter(Boolean).length;
     const readMinutes = Math.max(1, Math.ceil(wordCount / 200));
     document.getElementById('article-read-time').textContent = `${readMinutes} min read`;
 
@@ -92,76 +107,90 @@ function initArticleViewer() {
         if (e.target === lightbox) lightbox.classList.remove('active');
     });
 
-    // Multi-slot Description & Architecture Diagram Display
-    const sectionsContainer = document.getElementById('article-sections-container');
-    const sections = Array.isArray(article.sections) && article.sections.length > 0
-        ? article.sections
-        : [{ description: article.excerpt || '', diagram: article.diagram || '', diagramCaption: article.diagramCaption || '' }];
+    // Render 3-Slot Sequence: Description -> Architecture Diagram -> Note Content
+    const bodyEl = document.getElementById('article-body');
+    bodyEl.innerHTML = '';
 
-    const activeSections = sections.filter(s => (s.description && s.description.trim()) || s.diagram);
+    const activeSections = rawSections.map((sec, idx) => ({ ...sec, slotNum: idx + 1 }))
+        .filter(s => (s.description && s.description.trim()) || s.diagram || (s.content && s.content.trim()));
 
-    if (sectionsContainer) {
-        if (activeSections.length > 0) {
-            sectionsContainer.innerHTML = '';
-            activeSections.forEach((sec, idx) => {
-                const sectionEl = document.createElement('div');
-                sectionEl.className = 'article-section-block';
+    if (activeSections.length > 0) {
+        activeSections.forEach((sec, idx) => {
+            const sectionEl = document.createElement('div');
+            sectionEl.className = 'article-section-block';
+            sectionEl.id = `article-section-${sec.slotNum}`;
 
-                if (sec.description && sec.description.trim()) {
-                    const label = activeSections.length > 1 ? `Description ${idx + 1}:` : 'Description:';
-                    const abstractCard = document.createElement('div');
-                    abstractCard.className = 'article-abstract-card';
-                    abstractCard.innerHTML = `
-                        <div class="abstract-label">${label}</div>
-                        <p class="abstract-text">${escapeHtml(sec.description.trim())}</p>
-                    `;
-                    sectionEl.appendChild(abstractCard);
-                }
+            // Part tag if more than 1 section exists
+            if (activeSections.length > 1) {
+                const tagEl = document.createElement('div');
+                tagEl.className = 'article-section-header-tag';
+                tagEl.innerHTML = `<span>Part ${sec.slotNum}</span>`;
+                sectionEl.appendChild(tagEl);
+            }
 
-                if (sec.diagram) {
-                    const diagCard = document.createElement('section');
-                    diagCard.className = 'article-diagram-wrapper';
-                    const tagLabel = activeSections.length > 1 ? `📐 Architecture Diagram #${idx + 1}` : '📐 Architecture Diagram';
-                    const captionText = sec.diagramCaption || `Figure ${idx + 1}: Architecture diagram`;
+            // 1. Description
+            if (sec.description && sec.description.trim()) {
+                const label = activeSections.length > 1 ? `Description ${sec.slotNum}:` : 'Description:';
+                const abstractCard = document.createElement('div');
+                abstractCard.className = 'article-abstract-card';
+                abstractCard.innerHTML = `
+                    <div class="abstract-label">${label}</div>
+                    <p class="abstract-text">${escapeHtml(sec.description.trim())}</p>
+                `;
+                sectionEl.appendChild(abstractCard);
+            }
 
-                    diagCard.innerHTML = `
-                        <div class="diagram-display-card">
-                            <div class="diagram-tag">${tagLabel}</div>
-                            <div class="diagram-image-container">
-                                <img src="${sec.diagram}" alt="Architecture Diagram ${idx + 1}" class="diagram-zoomable">
-                            </div>
-                            <p class="diagram-caption">${escapeHtml(captionText)}</p>
+            // 2. Architecture Diagram
+            if (sec.diagram) {
+                const diagCard = document.createElement('section');
+                diagCard.className = 'article-diagram-wrapper';
+                const tagLabel = activeSections.length > 1 ? `📐 Architecture Diagram #${sec.slotNum}` : '📐 Architecture Diagram';
+                const captionText = sec.diagramCaption || `Figure ${sec.slotNum}: Architecture diagram`;
+
+                diagCard.innerHTML = `
+                    <div class="diagram-display-card">
+                        <div class="diagram-tag">${tagLabel}</div>
+                        <div class="diagram-image-container">
+                            <img src="${sec.diagram}" alt="Architecture Diagram ${sec.slotNum}" class="diagram-zoomable">
                         </div>
-                    `;
+                        <p class="diagram-caption">${escapeHtml(captionText)}</p>
+                    </div>
+                `;
 
-                    const img = diagCard.querySelector('.diagram-zoomable');
-                    if (img) {
-                        img.addEventListener('click', () => openLightbox(sec.diagram));
-                    }
-
-                    sectionEl.appendChild(diagCard);
+                const img = diagCard.querySelector('.diagram-zoomable');
+                if (img) {
+                    img.addEventListener('click', () => openLightbox(sec.diagram));
                 }
 
-                sectionsContainer.appendChild(sectionEl);
-            });
-            sectionsContainer.style.display = 'block';
-        } else {
-            sectionsContainer.innerHTML = '';
-            sectionsContainer.style.display = 'none';
-        }
+                sectionEl.appendChild(diagCard);
+            }
+
+            // 3. Note Content (Markdown, LaTeX & PyTorch / Python Code)
+            if (sec.content && sec.content.trim()) {
+                const slotBody = document.createElement('div');
+                slotBody.className = 'article-slot-body';
+                slotBody.innerHTML = HubStore.renderMarkdown(sec.content);
+                sectionEl.appendChild(slotBody);
+            }
+
+            bodyEl.appendChild(sectionEl);
+        });
+    } else if (article.content && article.content.trim()) {
+        const fallbackBody = document.createElement('div');
+        fallbackBody.className = 'article-slot-body';
+        fallbackBody.innerHTML = HubStore.renderMarkdown(article.content);
+        bodyEl.appendChild(fallbackBody);
+    } else if (!article.customHtml) {
+        bodyEl.innerHTML = '<p class="article-loading-text">This research note has no content yet.</p>';
     }
 
-    // Render Body Markdown
-    const bodyEl = document.getElementById('article-body');
-    const html = HubStore.renderMarkdown(article.content || '');
-    bodyEl.innerHTML = html;
-
-    // Render Interactive HTML container if article has custom HTML code
+    // 4. Lastly: Render Interactive HTML Web App at the very end after the 3 slots
     const hasCustomHtml = Boolean(article.customHtml && article.customHtml.trim().length > 0);
     if (hasCustomHtml) {
         const interactiveContainer = document.createElement('div');
         interactiveContainer.className = 'topic-roadmap-container';
-        interactiveContainer.style.margin = '1rem 0 2rem';
+        interactiveContainer.id = 'article-interactive-container';
+        interactiveContainer.style.margin = '2.5rem 0 2rem';
         interactiveContainer.innerHTML = `
             <div class="topic-roadmap-header">
                 <div class="topic-roadmap-header-left">
@@ -176,7 +205,7 @@ function initArticleViewer() {
             </div>
             <iframe class="topic-roadmap-iframe" id="article-html-iframe" title="${escapeHtml(article.title)}"></iframe>
         `;
-        bodyEl.prepend(interactiveContainer);
+        bodyEl.appendChild(interactiveContainer);
         const artIframe = interactiveContainer.querySelector('#article-html-iframe');
         if (artIframe) artIframe.srcdoc = article.customHtml;
 
