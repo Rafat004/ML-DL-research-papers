@@ -327,48 +327,199 @@ function initEditor() {
         return score >= 2;
     }
 
-    /* ---- Smart Math / Formula Helpers ---- */
-    function tryFixBrokenMath(text) {
-        if (!text || typeof text !== 'string') return null;
-        const clean = text.replace(/\r/g, '').trim();
+    /* ---- Universal Math / Formula Helpers ---- */
+    function decodeHtmlEntities(str) {
+        if (!str) return '';
+        return str
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&#x2F;/g, '/');
+    }
 
-        // 1. SSE (Sum of Squared Errors) pattern from ChatGPT DOM copy
-        if (/SSE/i.test(clean) && /(?:∑|\\sum)/i.test(clean) && /y/i.test(clean)) {
-            return `$$\n\\text{SSE} = \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2\n$$`;
+    function extractLatexFromHtml(html) {
+        if (!html || typeof html !== 'string') return null;
+
+        // 1. KaTeX annotation (standard in ChatGPT and all modern KaTeX sites)
+        const katexMatch = html.match(/<annotation\s+encoding=["']application\/x-tex["'][^>]*>([\s\S]*?)<\/annotation>/i);
+        if (katexMatch && katexMatch[1]) {
+            return decodeHtmlEntities(katexMatch[1].trim());
         }
-        // 2. MSE (Mean Squared Error) pattern
-        if (/MSE/i.test(clean) && /(?:∑|\\sum)/i.test(clean) && /y/i.test(clean)) {
-            return `$$\n\\text{MSE} = \\frac{1}{n} \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2\n$$`;
+
+        // 2. MathJax script tags
+        const mathjaxMatch = html.match(/<script\s+type=["']math\/tex(?:;\s*mode=display)?["'][^>]*>([\s\S]*?)<\/script>/i);
+        if (mathjaxMatch && mathjaxMatch[1]) {
+            return decodeHtmlEntities(mathjaxMatch[1].trim());
         }
-        // 3. RMSE (Root Mean Squared Error) pattern
-        if (/RMSE/i.test(clean) && /(?:∑|\\sum)/i.test(clean)) {
-            return `$$\n\\text{RMSE} = \\sqrt{\\frac{1}{n} \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2}\n$$`;
-        }
-        // 4. MAE (Mean Absolute Error) pattern
-        if (/MAE/i.test(clean) && /(?:∑|\\sum)/i.test(clean)) {
-            return `$$\n\\text{MAE} = \\frac{1}{n} \\sum_{i=1}^{n} |y_i - \\hat{y}_i|\n$$`;
-        }
-        // 5. Partial derivatives for linear regression
-        if (/(?:∂|\\partial)/i.test(clean) && /w/i.test(clean) && /(?:SSE|MSE)/i.test(clean)) {
-            return `$$\n\\frac{\\partial \\text{SSE}}{\\partial w} = -2 \\sum_{i=1}^{n} x_i (y_i - \\hat{y}_i)\n$$`;
-        }
-        if (/(?:∂|\\partial)/i.test(clean) && /b/i.test(clean) && /(?:SSE|MSE)/i.test(clean)) {
-            return `$$\n\\frac{\\partial \\text{SSE}}{\\partial b} = -2 \\sum_{i=1}^{n} (y_i - \\hat{y}_i)\n$$`;
-        }
-        // 6. Generic summation pattern: e.g. i=1 \n ∑ \n n \n (y_i - ...)^2
-        if (/(?:i\s*=\s*1|1\s*=\s*i)\s*\n+\s*∑\s*\n+\s*n/i.test(clean) && /y/i.test(clean)) {
-            return `$$\n\\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2\n$$`;
+
+        // 3. MathML alt or data-latex attributes
+        const attrMatch = html.match(/(?:data-latex|data-math|alt)=["']([^"']+)["']/i);
+        if (attrMatch && attrMatch[1] && /(\\[a-zA-Z]+|[_\^])/.test(attrMatch[1])) {
+            return decodeHtmlEntities(attrMatch[1].trim());
         }
 
         return null;
     }
 
-    function isBrokenCopiedMath(text) {
-        if (!text || typeof text !== 'string') return false;
-        const hasMathSymbols = /[∑∫∏√∂±≠≤≥]/.test(text) || /\b(?:SSE|MSE|RMSE|MAE)\s*=/i.test(text);
-        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        const shortLines = lines.filter(l => l.length <= 4);
-        return hasMathSymbols && shortLines.length >= 3;
+    function reconstructBrokenMath(text) {
+        if (!text || typeof text !== 'string') return null;
+
+        // Normalize newlines, spaces and common unicode math symbols
+        const raw = text
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .replace(/\u00A0/g, ' ')
+            .replace(/[\u2010\u2012\u2013\u2014\u2212]/g, '-') // unicode minus/hyphen
+            .replace(/[\u2217\u00D7]/g, ' \\times ')
+            .replace(/[\u00F7]/g, ' \\div ')
+            .replace(/[\u22C5]/g, ' \\cdot ')
+            .replace(/[\u2260]/g, ' \\neq ')
+            .replace(/[\u2264]/g, ' \\le ')
+            .replace(/[\u2265]/g, ' \\ge ')
+            .replace(/[\u2248]/g, ' \\approx ')
+            .replace(/[\u2208]/g, ' \\in ')
+            .replace(/[\u2192]/g, ' \\to ')
+            .replace(/[\u2202]/g, ' \\partial ')
+            .replace(/[\u221A]/g, ' \\sqrt ');
+
+        // Extract lines, trim them
+        const rawLines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        if (rawLines.length === 0) return null;
+
+        // Check if it's broken multi-line math (e.g. many short lines with math tokens)
+        const hasMathSigns = /[=+\-*\/_^\(\)\[\]\{\}∑∏∫∂\\]/.test(raw) || /\b(?:SSE|MSE|RMSE|MAE)\b/i.test(raw);
+        const shortLines = rawLines.filter(l => l.length <= 4);
+        const isFragmented = rawLines.length >= 3 && (shortLines.length / rawLines.length) >= 0.4;
+
+        if (!isFragmented && !hasMathSigns) {
+            return null; // Not broken math
+        }
+
+        // Tokenize each line into sub-tokens while separating operators
+        const tokens = [];
+        for (const line of rawLines) {
+            const sub = line.match(/([a-zA-Z_]\w*=\d+|∑|∏|∫|[a-zA-Z_]\w*|\d+(?:\.\d+)?|[-+=*\/^><_()\[\]{}|]|\\[a-zA-Z]+)/g);
+            if (sub) {
+                tokens.push(...sub);
+            } else {
+                tokens.push(line);
+            }
+        }
+
+        if (tokens.length < 2) return null;
+
+        // Grammar reconstruction walk
+        const out = [];
+        let i = 0;
+
+        while (i < tokens.length) {
+            const t = tokens[i];
+            const next = tokens[i + 1] || '';
+            const afterNext = tokens[i + 2] || '';
+
+            // 1. Summation: ∑ with possible preceding lower limit (i=1) and upper limit (n)
+            if (t === '∑') {
+                let lower = '';
+                if (out.length > 0 && /^[a-zA-Z_]\w*=\d+$/.test(out[out.length - 1])) {
+                    lower = out.pop();
+                }
+                let upper = '';
+                if (next && /^(?:[nNmMkK]|\d+|\\infty)$/.test(next)) {
+                    upper = next;
+                    i++;
+                }
+                if (lower && upper) {
+                    out.push(`\\sum_{${lower}}^{${upper}}`);
+                } else if (lower) {
+                    out.push(`\\sum_{${lower}}`);
+                } else if (upper) {
+                    out.push(`\\sum^{${upper}}`);
+                } else {
+                    out.push('\\sum');
+                }
+                i++;
+                continue;
+            }
+
+            // 2. Preceding lower limit followed by ∑ (e.g. tokens: "i=1", "∑", "n")
+            if (/^[a-zA-Z_]\w*=\d+$/.test(t) && next === '∑') {
+                const lower = t;
+                let upper = '';
+                if (afterNext && /^(?:[nNmMkK]|\d+|\\infty)$/.test(afterNext)) {
+                    upper = afterNext;
+                    i += 3;
+                } else {
+                    i += 2;
+                }
+                out.push(upper ? `\\sum_{${lower}}^{${upper}}` : `\\sum_{${lower}}`);
+                continue;
+            }
+
+            // 3. Hat accent: variable followed by "^" (e.g. "y", "^" -> "\hat{y}")
+            if (/^[a-zA-Z]$/.test(t) && next === '^') {
+                let base = `\\hat{${t}}`;
+                i += 2;
+                const sub = tokens[i];
+                if (sub && /^[a-zA-Z0-9]$/.test(sub)) {
+                    base += `_${sub}`;
+                    i++;
+                }
+                out.push(base);
+                continue;
+            }
+
+            // 4. Accent before variable: "^" followed by "y" -> "\hat{y}"
+            if (t === '^' && /^[a-zA-Z]$/.test(next)) {
+                let base = `\\hat{${next}}`;
+                i += 2;
+                const sub = tokens[i];
+                if (sub && /^[a-zA-Z0-9]$/.test(sub)) {
+                    base += `_${sub}`;
+                    i++;
+                }
+                out.push(base);
+                continue;
+            }
+
+            // 5. Variable followed by subscript (indices like i, j, k, n, m, t or digits 0-9)
+            const isIndexSubscript = /^(?:[ijkntm]|0|[1-9]\d*|[ijkntm][+-]\d+)$/i.test(next);
+            if (/^[a-zA-Z]$/.test(t) && isIndexSubscript && !['=', '+', '-', '*', '/', '^', '(', ')'].includes(next)) {
+                out.push(`${t}_${next}`);
+                i += 2;
+                continue;
+            }
+
+            // 6. Superscript / exponent after parentheses or variable: e.g. ")", "2" -> ")^2"
+            if ((t === ')' || t === ']') && /^\d+$/.test(next)) {
+                out.push(`${t}^${next}`);
+                i += 2;
+                continue;
+            }
+
+            // 7. Multi-letter acronyms / names like SSE, MSE, RMSE, MAE
+            if (/^[A-Z]{2,}$/.test(t)) {
+                out.push(`\\text{${t}}`);
+                i++;
+                continue;
+            }
+
+            // Normal token
+            out.push(t);
+            i++;
+        }
+
+        let result = out.join(' ')
+            .replace(/\s*([=+\-])\s*/g, ' $1 ')
+            .replace(/\(\s+/g, '(')
+            .replace(/\s+\)/g, ')')
+            .replace(/\s*\^\s*/g, '^')
+            .replace(/\s*_\s*/g, '_')
+            .replace(/\\sum\s*([_{])/g, '\\sum$1')
+            .trim();
+
+        return result ? `$$\n${result}\n$$` : null;
     }
 
     /* ---- Toolbar Actions (Routed to Respective Slot) ---- */
@@ -418,11 +569,26 @@ function initEditor() {
                 break;
             case 'math-block':
                 if (selected && selected.trim()) {
-                    replacement = `\n$$\n${selected.trim()}\n$$\n`;
-                    cursorOffset = replacement.length;
+                    const recon = reconstructBrokenMath(selected.trim());
+                    if (recon) {
+                        replacement = `\n${recon}\n`;
+                        cursorOffset = replacement.length;
+                        showToast('✓ Auto-reconstructed broken formula into clean LaTeX!', 'success');
+                    } else {
+                        replacement = `\n$$\n${selected.trim()}\n$$\n`;
+                        cursorOffset = replacement.length;
+                    }
                 } else {
                     const fullVal = targetTextarea.value.trim();
-                    if (fullVal && !fullVal.includes('$$') && /(\\sum|\\frac|\\text|\\hat|SSE|MSE)/.test(fullVal)) {
+                    const reconFull = reconstructBrokenMath(fullVal);
+                    if (reconFull) {
+                        targetTextarea.value = reconFull;
+                        updateSlotLivePreview(slot);
+                        markDirty();
+                        showToast('✓ Auto-reconstructed broken formula into clean LaTeX!', 'success');
+                        return;
+                    }
+                    if (fullVal && !fullVal.includes('$$') && /(\\sum|\\frac|\\text|\\hat|SSE|MSE|=)/.test(fullVal)) {
                         targetTextarea.value = `$$\n${fullVal}\n$$\n`;
                         updateSlotLivePreview(slot);
                         markDirty();
@@ -596,22 +762,48 @@ if __name__ == "__main__":
                 const pastedText = clipboardData.getData('text');
                 if (!pastedText) return;
 
-                // 1. Broken Math Auto-Repair from ChatGPT web UI
-                const fixedMath = tryFixBrokenMath(pastedText);
-                if (fixedMath) {
+                // 1. Try extracting raw LaTeX from clipboard HTML (ChatGPT / KaTeX / MathJax copies)
+                const htmlData = clipboardData.getData('text/html');
+                const htmlLatex = extractLatexFromHtml(htmlData);
+                if (htmlLatex) {
                     e.preventDefault();
+                    const wrapped = `$$\n${htmlLatex}\n$$\n`;
                     const start = mdInputEl.selectionStart;
                     const end = mdInputEl.selectionEnd;
-                    mdInputEl.setRangeText(fixedMath, start, end, 'end');
+                    mdInputEl.setRangeText(wrapped, start, end, 'end');
                     scheduleSlotLivePreview(slot);
                     markDirty();
-                    showToast('✓ Auto-converted broken ChatGPT formula to clean LaTeX!', 'success');
+                    showToast('✓ Extracted clean LaTeX from ChatGPT formula!', 'success');
                     return;
                 }
 
-                // If user pastes broken math that couldn't be auto-converted, alert them with a helpful tip
-                if (isBrokenCopiedMath(pastedText)) {
-                    showToast('💡 Math text broke across lines. Ask ChatGPT for raw LaTeX code ($$...$$)!', 'warning');
+                // 2. Universal Broken Math Reconstructor from plain text (works for ALL formulas)
+                const reconstructed = reconstructBrokenMath(pastedText);
+                if (reconstructed) {
+                    e.preventDefault();
+                    const start = mdInputEl.selectionStart;
+                    const end = mdInputEl.selectionEnd;
+                    mdInputEl.setRangeText(reconstructed, start, end, 'end');
+                    scheduleSlotLivePreview(slot);
+                    markDirty();
+                    showToast('✓ Auto-reconstructed formula into clean LaTeX!', 'success');
+                    return;
+                }
+
+                // 3. Auto-wrap unwrapped single/multi-line LaTeX formulas
+                if (!pastedText.trim().startsWith('$') && !pastedText.trim().startsWith('```') && !isCursorInsideCodeBlock(mdInputEl)) {
+                    const isMathEquation = /(\\[a-zA-Z]+|[a-zA-Z]_[ijkntm0-9]|\^[0-9a-zA-Z])/.test(pastedText) && /[=+\-*\/]/.test(pastedText);
+                    if (isMathEquation && !isLikelyPythonCode(pastedText)) {
+                        e.preventDefault();
+                        const wrapped = `$$\n${pastedText.trim()}\n$$\n`;
+                        const start = mdInputEl.selectionStart;
+                        const end = mdInputEl.selectionEnd;
+                        mdInputEl.setRangeText(wrapped, start, end, 'end');
+                        scheduleSlotLivePreview(slot);
+                        markDirty();
+                        showToast('✓ Formatted equation as LaTeX block ($$...$$)!', 'success');
+                        return;
+                    }
                 }
 
                 // Don't auto-wrap if cursor is already inside a code block
