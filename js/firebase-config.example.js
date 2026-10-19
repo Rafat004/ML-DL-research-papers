@@ -1,20 +1,20 @@
 /* ============================================================
-   Deep Learning Knowledge Hub — Firebase Configuration & Service
-   Handles Firebase App, Firestore, Storage, and Google Auth.
+   Deep Learning Knowledge Hub — Firebase Configuration Template
+   Copy this file to js/firebase-config.js and fill in your keys.
    ============================================================ */
 
 const FirebaseConfig = (() => {
     const STORAGE_KEY_CONFIG = 'dl_hub_firebase_config_v1';
 
-    // Default configuration for ml-dl-research-paper
+    // Replace with your Firebase project configuration
     const DEFAULT_CONFIG = {
-        apiKey: "AIzaSyACHpOcWvUFe7p2-UoaUBvZQzdcpVP1BrM",
-        authDomain: "ml-dl-research-paper.firebaseapp.com",
-        projectId: "ml-dl-research-paper",
-        storageBucket: "ml-dl-research-paper.firebasestorage.app",
-        messagingSenderId: "1013231792429",
-        appId: "1:1013231792429:web:1ef4d3d1b0ba8a048ee3a4",
-        measurementId: "G-EB8X9Y0W2N"
+        apiKey: "YOUR_FIREBASE_API_KEY",
+        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        appId: "YOUR_APP_ID",
+        measurementId: "YOUR_MEASUREMENT_ID"
     };
 
     function getConfig() {
@@ -46,7 +46,7 @@ const FirebaseConfig = (() => {
 
     function isConfigured() {
         const cfg = getConfig();
-        return Boolean(cfg.apiKey && cfg.projectId && cfg.projectId !== "YOUR_PROJECT_ID");
+        return Boolean(cfg.apiKey && cfg.projectId && cfg.projectId !== "YOUR_PROJECT_ID" && cfg.apiKey !== "YOUR_FIREBASE_API_KEY");
     }
 
     let app = null;

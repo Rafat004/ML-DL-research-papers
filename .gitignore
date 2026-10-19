@@ -1,5 +1,9 @@
-
 .DS_Store
 Thumbs.db
 *.log
+
+# Firebase configuration & secrets
 firebase-config.js
+js/firebase-config.js
+.env
+.env*.local
