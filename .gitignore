@@ -2,8 +2,6 @@
 Thumbs.db
 *.log
 
-# Firebase configuration & secrets
-firebase-config.js
-js/firebase-config.js
+# Environment & private credentials
 .env
 .env*.local
