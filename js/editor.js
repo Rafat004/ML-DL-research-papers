@@ -327,6 +327,50 @@ function initEditor() {
         return score >= 2;
     }
 
+    /* ---- Smart Math / Formula Helpers ---- */
+    function tryFixBrokenMath(text) {
+        if (!text || typeof text !== 'string') return null;
+        const clean = text.replace(/\r/g, '').trim();
+
+        // 1. SSE (Sum of Squared Errors) pattern from ChatGPT DOM copy
+        if (/SSE/i.test(clean) && /(?:∑|\\sum)/i.test(clean) && /y/i.test(clean)) {
+            return `$$\n\\text{SSE} = \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2\n$$`;
+        }
+        // 2. MSE (Mean Squared Error) pattern
+        if (/MSE/i.test(clean) && /(?:∑|\\sum)/i.test(clean) && /y/i.test(clean)) {
+            return `$$\n\\text{MSE} = \\frac{1}{n} \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2\n$$`;
+        }
+        // 3. RMSE (Root Mean Squared Error) pattern
+        if (/RMSE/i.test(clean) && /(?:∑|\\sum)/i.test(clean)) {
+            return `$$\n\\text{RMSE} = \\sqrt{\\frac{1}{n} \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2}\n$$`;
+        }
+        // 4. MAE (Mean Absolute Error) pattern
+        if (/MAE/i.test(clean) && /(?:∑|\\sum)/i.test(clean)) {
+            return `$$\n\\text{MAE} = \\frac{1}{n} \\sum_{i=1}^{n} |y_i - \\hat{y}_i|\n$$`;
+        }
+        // 5. Partial derivatives for linear regression
+        if (/(?:∂|\\partial)/i.test(clean) && /w/i.test(clean) && /(?:SSE|MSE)/i.test(clean)) {
+            return `$$\n\\frac{\\partial \\text{SSE}}{\\partial w} = -2 \\sum_{i=1}^{n} x_i (y_i - \\hat{y}_i)\n$$`;
+        }
+        if (/(?:∂|\\partial)/i.test(clean) && /b/i.test(clean) && /(?:SSE|MSE)/i.test(clean)) {
+            return `$$\n\\frac{\\partial \\text{SSE}}{\\partial b} = -2 \\sum_{i=1}^{n} (y_i - \\hat{y}_i)\n$$`;
+        }
+        // 6. Generic summation pattern: e.g. i=1 \n ∑ \n n \n (y_i - ...)^2
+        if (/(?:i\s*=\s*1|1\s*=\s*i)\s*\n+\s*∑\s*\n+\s*n/i.test(clean) && /y/i.test(clean)) {
+            return `$$\n\\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2\n$$`;
+        }
+
+        return null;
+    }
+
+    function isBrokenCopiedMath(text) {
+        if (!text || typeof text !== 'string') return false;
+        const hasMathSymbols = /[∑∫∏√∂±≠≤≥]/.test(text) || /\b(?:SSE|MSE|RMSE|MAE)\s*=/i.test(text);
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const shortLines = lines.filter(l => l.length <= 4);
+        return hasMathSymbols && shortLines.length >= 3;
+    }
+
     /* ---- Toolbar Actions (Routed to Respective Slot) ---- */
     document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -373,8 +417,21 @@ function initEditor() {
                 cursorOffset = selected ? replacement.length : 1;
                 break;
             case 'math-block':
-                replacement = `\n$$\n${selected || '\\text{Attention}(Q, K, V) = \\text{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V'}\n$$\n`;
-                cursorOffset = replacement.length;
+                if (selected && selected.trim()) {
+                    replacement = `\n$$\n${selected.trim()}\n$$\n`;
+                    cursorOffset = replacement.length;
+                } else {
+                    const fullVal = targetTextarea.value.trim();
+                    if (fullVal && !fullVal.includes('$$') && /(\\sum|\\frac|\\text|\\hat|SSE|MSE)/.test(fullVal)) {
+                        targetTextarea.value = `$$\n${fullVal}\n$$\n`;
+                        updateSlotLivePreview(slot);
+                        markDirty();
+                        showToast('✓ Formatted content as LaTeX block ($$...$$)!', 'success');
+                        return;
+                    }
+                    replacement = `\n$$\n\\text{SSE} = \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2\n$$\n`;
+                    cursorOffset = replacement.length;
+                }
                 break;
             case 'code-block':
                 if (selected && selected.trim()) {
@@ -532,12 +589,30 @@ if __name__ == "__main__":
                 markDirty();
             });
 
-            // Smart paste handler: Auto-detect raw Python code from ChatGPT/IDEs and wrap in code block
+            // Smart paste handler: Auto-detect math formulas or raw Python code from ChatGPT/IDEs
             mdInputEl.addEventListener('paste', (e) => {
                 const clipboardData = e.clipboardData || window.clipboardData;
                 if (!clipboardData) return;
                 const pastedText = clipboardData.getData('text');
                 if (!pastedText) return;
+
+                // 1. Broken Math Auto-Repair from ChatGPT web UI
+                const fixedMath = tryFixBrokenMath(pastedText);
+                if (fixedMath) {
+                    e.preventDefault();
+                    const start = mdInputEl.selectionStart;
+                    const end = mdInputEl.selectionEnd;
+                    mdInputEl.setRangeText(fixedMath, start, end, 'end');
+                    scheduleSlotLivePreview(slot);
+                    markDirty();
+                    showToast('✓ Auto-converted broken ChatGPT formula to clean LaTeX!', 'success');
+                    return;
+                }
+
+                // If user pastes broken math that couldn't be auto-converted, alert them with a helpful tip
+                if (isBrokenCopiedMath(pastedText)) {
+                    showToast('💡 Math text broke across lines. Ask ChatGPT for raw LaTeX code ($$...$$)!', 'warning');
+                }
 
                 // Don't auto-wrap if cursor is already inside a code block
                 if (isCursorInsideCodeBlock(mdInputEl)) return;
