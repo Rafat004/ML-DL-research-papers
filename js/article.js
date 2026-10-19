@@ -133,9 +133,12 @@ function initArticleViewer() {
                 const label = activeSections.length > 1 ? `Description ${sec.slotNum}:` : 'Description:';
                 const abstractCard = document.createElement('div');
                 abstractCard.className = 'article-abstract-card';
+                const renderedDesc = typeof HubStore !== 'undefined' && typeof HubStore.renderMarkdown === 'function'
+                    ? HubStore.renderMarkdown(sec.description.trim())
+                    : escapeHtml(sec.description.trim()).replace(/\n/g, '<br>');
                 abstractCard.innerHTML = `
                     <div class="abstract-label">${label}</div>
-                    <p class="abstract-text">${escapeHtml(sec.description.trim())}</p>
+                    <div class="abstract-text">${renderedDesc}</div>
                 `;
                 sectionEl.appendChild(abstractCard);
             }

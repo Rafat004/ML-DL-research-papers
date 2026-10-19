@@ -210,14 +210,37 @@ function initEditor() {
         const previewEl = document.getElementById(`preview-content-${slot}`);
         if (!inputEl || !previewEl) return;
 
+        const excerptInput = document.getElementById(`article-excerpt-${slot}`);
+        const excerptText = (excerptInput?.value || '').trim();
         const raw = inputEl.value;
-        if (!raw.trim()) {
+
+        if (!raw.trim() && !excerptText) {
             previewEl.innerHTML = `<p class="preview-placeholder">Live preview for Part ${slot} will render here as you type...</p>`;
             return;
         }
 
-        const html = HubStore.renderMarkdown(raw);
-        previewEl.innerHTML = html;
+        let fullHtml = '';
+
+        // 1. Description Live Preview Card
+        if (excerptText) {
+            const label = slotCount > 1 ? `Description ${slot}:` : 'Description:';
+            const renderedDesc = typeof HubStore !== 'undefined' && typeof HubStore.renderMarkdown === 'function'
+                ? HubStore.renderMarkdown(excerptText)
+                : escapeHtml(excerptText).replace(/\n/g, '<br>');
+            fullHtml += `
+                <div class="article-abstract-card preview-abstract-card">
+                    <div class="abstract-label">${label}</div>
+                    <div class="abstract-text">${renderedDesc}</div>
+                </div>
+            `;
+        }
+
+        // 2. Note Content Live Preview
+        if (raw.trim()) {
+            fullHtml += HubStore.renderMarkdown(raw);
+        }
+
+        previewEl.innerHTML = fullHtml;
 
         // Render KaTeX math formulas
         if (typeof renderMathInElement === 'function') {
@@ -745,6 +768,7 @@ if __name__ == "__main__":
 
         if (excerptInput) {
             excerptInput.addEventListener('input', () => {
+                scheduleSlotLivePreview(slot);
                 markDirty();
             });
         }

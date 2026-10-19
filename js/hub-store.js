@@ -1775,6 +1775,8 @@ async function renameTopic(topicIdOrSlug, newName) {
         }
 
         let html = rawMd
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
