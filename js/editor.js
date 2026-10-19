@@ -291,6 +291,42 @@ function initEditor() {
         document.getElementById('editor-status-badge').classList.remove('dirty');
     }
 
+    /* ---- Smart Python & Code Helpers ---- */
+    function isCursorInsideCodeBlock(textarea) {
+        if (!textarea) return false;
+        const pos = textarea.selectionStart;
+        const textBefore = textarea.value.substring(0, pos);
+        const fences = textBefore.match(/```/g);
+        return fences ? (fences.length % 2 === 1) : false;
+    }
+
+    function isLikelyPythonCode(text) {
+        if (!text || typeof text !== 'string') return false;
+        const trimmed = text.trim();
+        // Skip if already completely wrapped in markdown fences
+        if (trimmed.startsWith('```') && trimmed.endsWith('```')) return false;
+
+        let score = 0;
+        // Strong indicators (+3)
+        if (/(?:^|\n)\s*(?:import\s+[a-zA-Z_]\w*|from\s+[a-zA-Z_]\w*\s+import)/.test(trimmed)) score += 3;
+        if (/(?:^|\n)\s*(?:def\s+[a-zA-Z_]\w*\s*\(|class\s+[a-zA-Z_]\w*\s*[:\(])/.test(trimmed)) score += 3;
+        if (/(?:^|\n)\s*(?:if\s+__name__\s*==\s*['"]__main__['"])/.test(trimmed)) score += 3;
+
+        // Moderate indicators (+2)
+        if (/\b(?:np|torch|nn|F|plt|pd|tf|scipy|widgets|display)\.[a-zA-Z_]/.test(trimmed)) score += 2;
+        if (/(?:^|\n)\s*(?:for\s+[a-zA-Z_]\w*\s+in\s+|while\s+|elif\s+|except(?:\s+[a-zA-Z_]*)?\s*:)/.test(trimmed)) score += 2;
+        if (/\b(?:print|len|range|enumerate|zip)\s*\(/.test(trimmed)) score += 1;
+        if (/(?:^|\n)\s*self\.[a-zA-Z_]/.test(trimmed)) score += 2;
+        if (/\b(?:return|yield)\s+/.test(trimmed)) score += 1;
+
+        // Python style comments with assignments or brackets (+1)
+        if (/(?:^|\n)\s*#[ \t]+/.test(trimmed) && /(?:=|\[|\(|\{)/.test(trimmed)) score += 1;
+        if (/(?:^|\n)\s*[a-zA-Z_]\w*\s*=\s*(?:np\.|torch\.|\[|\{|\(|widgets\.)/.test(trimmed)) score += 2;
+        if (/:\s*\r?\n\s{4,}\S/.test(trimmed)) score += 2;
+
+        return score >= 2;
+    }
+
     /* ---- Toolbar Actions (Routed to Respective Slot) ---- */
     document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -341,8 +377,21 @@ function initEditor() {
                 cursorOffset = replacement.length;
                 break;
             case 'code-block':
-                replacement = `\n\`\`\`python\nimport torch\nimport torch.nn as nn\n\n# ${selected || 'Model Implementation'}\nclass MyModule(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.linear = nn.Linear(512, 512)\n        \n    def forward(self, x):\n        return self.linear(x)\n\`\`\`\n`;
-                cursorOffset = replacement.length;
+                if (selected && selected.trim()) {
+                    replacement = `\n\`\`\`python\n${selected.trim()}\n\`\`\`\n`;
+                    cursorOffset = replacement.length;
+                } else {
+                    const fullVal = targetTextarea.value.trim();
+                    if (fullVal && !fullVal.includes('```') && isLikelyPythonCode(fullVal)) {
+                        targetTextarea.value = `\`\`\`python\n${fullVal}\n\`\`\`\n`;
+                        updateSlotLivePreview(slot);
+                        markDirty();
+                        showToast('✓ Formatted note content as Python code block!', 'success');
+                        return;
+                    }
+                    replacement = `\n\`\`\`python\n# Paste or write your Python code here\n\n\`\`\`\n`;
+                    cursorOffset = replacement.length - 5;
+                }
                 break;
             case 'quote':
                 replacement = `\n> [!KEY INSIGHT]\n> ${selected || 'Key theoretical takeaway or intuitive explanation.'}\n`;
@@ -481,6 +530,32 @@ if __name__ == "__main__":
             mdInputEl.addEventListener('input', () => {
                 scheduleSlotLivePreview(slot);
                 markDirty();
+            });
+
+            // Smart paste handler: Auto-detect raw Python code from ChatGPT/IDEs and wrap in code block
+            mdInputEl.addEventListener('paste', (e) => {
+                const clipboardData = e.clipboardData || window.clipboardData;
+                if (!clipboardData) return;
+                const pastedText = clipboardData.getData('text');
+                if (!pastedText) return;
+
+                // Don't auto-wrap if cursor is already inside a code block
+                if (isCursorInsideCodeBlock(mdInputEl)) return;
+
+                // Don't auto-wrap if already formatted as a code block (starts with ```)
+                if (pastedText.trim().startsWith('```')) return;
+
+                // Check if it's likely Python code
+                if (isLikelyPythonCode(pastedText)) {
+                    e.preventDefault();
+                    const wrappedCode = `\`\`\`python\n${pastedText.trim()}\n\`\`\`\n`;
+                    const start = mdInputEl.selectionStart;
+                    const end = mdInputEl.selectionEnd;
+                    mdInputEl.setRangeText(wrappedCode, start, end, 'end');
+                    scheduleSlotLivePreview(slot);
+                    markDirty();
+                    showToast('✓ Python code auto-wrapped in code block with syntax highlighting!', 'success');
+                }
             });
         }
 

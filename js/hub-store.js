@@ -1780,9 +1780,10 @@ async function renameTopic(topicIdOrSlug, newName) {
             .replace(/>/g, '&gt;');
 
         const codeBlocks = [];
-        html = html.replace(/```([a-zA-Z0-9_\-\+]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+        html = html.replace(/```([a-zA-Z0-9_\-\+]*)[ \t]*\r?\n([\s\S]*?)```/g, (match, lang, code) => {
+            const cleanLang = (lang || 'python').trim().toLowerCase();
             const id = `__CODE_BLOCK_${codeBlocks.length}__`;
-            codeBlocks.push({ lang: lang || 'python', code: code });
+            codeBlocks.push({ lang: cleanLang || 'python', code: code });
             return id;
         });
 
