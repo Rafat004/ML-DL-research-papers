@@ -29,6 +29,7 @@ function initEditor() {
     // Modals
     const modalTopic = document.getElementById('modal-new-topic');
     const btnOpenTopicModal = document.getElementById('btn-open-topic-modal');
+    const btnEditTopicModal = document.getElementById('btn-edit-selected-topic-modal');
     const btnCloseTopicModal = document.getElementById('btn-close-topic-modal');
     const btnCancelTopicModal = document.getElementById('btn-cancel-topic-modal');
     const btnSaveNewTopic = document.getElementById('btn-save-new-topic');
@@ -99,6 +100,17 @@ function initEditor() {
     // Populate topics dropdown
     renderTopicOptions();
 
+    function updateEditTopicBtn() {
+        if (!btnEditTopicModal) return;
+        if (topicSelect && topicSelect.value) {
+            btnEditTopicModal.style.display = 'inline-block';
+        } else {
+            btnEditTopicModal.style.display = 'none';
+        }
+    }
+
+    topicSelect?.addEventListener('change', updateEditTopicBtn);
+
     /* ---- Render Topics in Dropdown ---- */
     function renderTopicOptions(selectedId = null) {
         const topics = HubStore.getTopics();
@@ -114,6 +126,8 @@ function initEditor() {
             }
             topicSelect.appendChild(opt);
         });
+
+        updateEditTopicBtn();
     }
 
     /* ---- Load Existing Article ---- */
@@ -836,16 +850,64 @@ if __name__ == "__main__":
         }
     });
 
-    /* ---- New Topic Modal Handling ---- */
-    btnOpenTopicModal.addEventListener('click', () => {
+    /* ---- Topic Modal Handling (Create & Edit) ---- */
+    btnOpenTopicModal?.addEventListener('click', () => {
+        const titleEl = document.getElementById('modal-topic-title');
+        const idInput = document.getElementById('new-topic-id');
+        const nameInput = document.getElementById('new-topic-name');
+        const iconInput = document.getElementById('new-topic-icon');
+        const tagInput = document.getElementById('new-topic-tag');
+        const descInput = document.getElementById('new-topic-desc');
+
+        if (titleEl) titleEl.textContent = 'Create New Topic';
+        if (btnSaveNewTopic) btnSaveNewTopic.textContent = 'Create Topic';
+        if (idInput) idInput.value = '';
+        if (nameInput) nameInput.value = '';
+        if (iconInput) iconInput.value = '🧠';
+        if (tagInput) tagInput.value = '';
+        if (descInput) descInput.value = '';
+
         modalTopic.classList.add('active');
-        document.getElementById('new-topic-name').focus();
+        nameInput?.focus();
+    });
+
+    btnEditTopicModal?.addEventListener('click', () => {
+        const selectedId = topicSelect.value;
+        if (!selectedId) return;
+
+        const topic = HubStore.getTopic(selectedId);
+        if (!topic) return;
+
+        const titleEl = document.getElementById('modal-topic-title');
+        const idInput = document.getElementById('new-topic-id');
+        const nameInput = document.getElementById('new-topic-name');
+        const iconInput = document.getElementById('new-topic-icon');
+        const tagInput = document.getElementById('new-topic-tag');
+        const descInput = document.getElementById('new-topic-desc');
+
+        if (titleEl) titleEl.textContent = `✏️ Rename / Edit Topic — ${topic.name}`;
+        if (btnSaveNewTopic) btnSaveNewTopic.textContent = 'Save Changes';
+        if (idInput) idInput.value = topic.id;
+        if (nameInput) nameInput.value = topic.name;
+        if (iconInput) iconInput.value = topic.icon || '🧠';
+        if (tagInput) tagInput.value = topic.tag || '';
+        if (descInput) descInput.value = topic.description || '';
+
+        modalTopic.classList.add('active');
+        if (nameInput) {
+            nameInput.focus();
+            nameInput.select();
+        }
     });
 
     function closeTopicModal() {
         modalTopic.classList.remove('active');
-        document.getElementById('new-topic-name').value = '';
-        document.getElementById('new-topic-desc').value = '';
+        const idInput = document.getElementById('new-topic-id');
+        const nameInput = document.getElementById('new-topic-name');
+        const descInput = document.getElementById('new-topic-desc');
+        if (idInput) idInput.value = '';
+        if (nameInput) nameInput.value = '';
+        if (descInput) descInput.value = '';
     }
 
     btnCloseTopicModal.addEventListener('click', closeTopicModal);
@@ -861,6 +923,7 @@ if __name__ == "__main__":
             return;
         }
 
+        const topicId = (document.getElementById('new-topic-id')?.value || '').trim();
         const icon = document.getElementById('new-topic-icon').value.trim() || '🧠';
         const tag = document.getElementById('new-topic-tag').value.trim() || 'Custom';
         const desc = document.getElementById('new-topic-desc').value.trim();
@@ -870,6 +933,7 @@ if __name__ == "__main__":
         btnSaveNewTopic.textContent = 'Saving...';
         try {
             const savedTopic = await HubStore.saveTopic({
+                id: topicId || undefined,
                 name: name,
                 icon: icon,
                 tag: tag,
@@ -878,13 +942,13 @@ if __name__ == "__main__":
 
             renderTopicOptions(savedTopic.id);
             closeTopicModal();
-            showToast(`Topic "${savedTopic.name}" created!`, 'success');
+            showToast(topicId ? `Topic renamed to "${savedTopic.name}"!` : `Topic "${savedTopic.name}" created!`, 'success');
         } catch (e) {
-            showToast(`Error creating topic: ${e.message}`, 'error');
+            showToast(`Error saving topic: ${e.message}`, 'error');
         } finally {
             isSavingNewTopic = false;
             btnSaveNewTopic.disabled = false;
-            btnSaveNewTopic.textContent = 'Save Topic';
+            btnSaveNewTopic.textContent = topicId ? 'Save Changes' : 'Create Topic';
         }
     });
 

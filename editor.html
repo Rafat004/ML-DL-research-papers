@@ -79,6 +79,7 @@
                     <label for="topic-select" class="form-label">
                         <span>Topic / Category</span>
                         <button type="button" class="btn-text-action" id="btn-open-topic-modal">+ Create New Topic</button>
+                        <button type="button" class="btn-text-action" id="btn-edit-selected-topic-modal" style="display: none; margin-left: 0.6rem; color: var(--color-accent);" title="Rename or edit this topic">✏️ Rename Topic</button>
                     </label>
                     <div class="select-wrapper">
                         <select id="topic-select" class="form-select">
@@ -492,14 +493,15 @@ Supports:
         </section>
     </main>
 
-    <!-- ========== CREATE NEW TOPIC MODAL ========== -->
+    <!-- ========== CREATE / EDIT TOPIC MODAL ========== -->
     <div class="modal-overlay" id="modal-new-topic">
         <div class="modal-card">
             <div class="modal-header">
-                <h3>Create New Topic</h3>
+                <h3 id="modal-topic-title">Create New Topic</h3>
                 <button type="button" class="modal-close" id="btn-close-topic-modal">✕</button>
             </div>
             <div class="modal-body">
+                <input type="hidden" id="new-topic-id" value="">
                 <div class="form-group">
                     <label class="form-label" for="new-topic-name">Topic Name *</label>
                     <input type="text" id="new-topic-name" class="form-input" placeholder="e.g. Transformers & Attention, Diffusion Models, Reinforcement Learning">
@@ -589,8 +591,8 @@ Supports:
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="js/firebase-config.js?v=2.3"></script>
-    <script src="js/hub-store.js?v=2.3"></script>
-    <script src="js/editor.js?v=2.3"></script>
+    <script src="js/firebase-config.js?v=2.5"></script>
+    <script src="js/hub-store.js?v=2.5"></script>
+    <script src="js/editor.js?v=2.5"></script>
 </body>
 </html>

@@ -436,9 +436,10 @@ const HubStore = (() => {
         const name = topicData.name.trim();
         const slug = slugify(name || 'untitled-topic');
 
-        // Mutex: Coalesce concurrent save requests for the same slug
-        if (pendingTopicSaves.has(slug)) {
-            return await pendingTopicSaves.get(slug);
+        // Mutex: Coalesce concurrent save requests
+        const mutexKey = topicData.id ? `id_${topicData.id}` : slug;
+        if (pendingTopicSaves.has(mutexKey)) {
+            return await pendingTopicSaves.get(mutexKey);
         }
 
         const saveAction = (async () => {
@@ -458,6 +459,8 @@ const HubStore = (() => {
 
             const now = Date.now();
             const existing = existingIndex >= 0 ? topics[existingIndex] : null;
+            const oldName = existing ? existing.name : null;
+            const oldSlug = existing ? existing.slug : null;
 
             const topicRecord = {
                 id: (existing && existing.id) ? existing.id : (topicData.id || uid('top')),
@@ -488,31 +491,101 @@ const HubStore = (() => {
                 cleanupFirestoreTopicDuplicates(duplicatesToDelete);
             }
 
-            let cloudSaved = false;
-            let cloudError = null;
-
-            // Save to Firebase Firestore if connected
-            const db = getFirebaseDb();
-            if (db) {
+            // If name or slug changed, cascade update to all articles belonging to this topic!
+            const nameOrSlugChanged = existing && (oldName !== name || oldSlug !== slug);
+            if (nameOrSlugChanged) {
                 try {
-                    await db.collection('topics').doc(topicRecord.id).set(topicRecord);
-                    cloudSaved = true;
-                } catch (err) {
-                    console.error('Failed to save topic to Firebase:', err);
-                    cloudError = err.message;
+                    const rawArticles = localStorage.getItem(STORAGE_KEY_ARTICLES);
+                    let allArticles = rawArticles ? JSON.parse(rawArticles) : [];
+                    let articlesUpdated = false;
+                    const articlesToSync = [];
+
+                    allArticles.forEach(a => {
+                        const matches = a.topicId === existing.id || 
+                                        (oldSlug && a.topicSlug === oldSlug) || 
+                                        (oldName && a.topicName === oldName);
+                        if (matches) {
+                            a.topicId = topicRecord.id;
+                            a.topicName = name;
+                            a.topicSlug = slug;
+                            a.updatedAt = now;
+                            articlesUpdated = true;
+                            articlesToSync.push(a);
+                        }
+                    });
+
+                    if (articlesUpdated) {
+                        localStorage.setItem(STORAGE_KEY_ARTICLES, JSON.stringify(allArticles));
+                        const db = getFirebaseDb();
+                        if (db && articlesToSync.length > 0) {
+                            try {
+                                const artBatch = db.batch();
+                                articlesToSync.forEach(art => {
+                                    const artRef = db.collection('articles').doc(art.id);
+                                    artBatch.set(artRef, { 
+                                        topicId: topicRecord.id, 
+                                        topicName: name, 
+                                        topicSlug: slug, 
+                                        updatedAt: now 
+                                    }, { merge: true });
+                            });
+                            await artBatch.commit();
+                        } catch (batchErr) {
+                            console.warn('[HubStore] Cloud batch update articles after topic rename fallback:', batchErr.message);
+                        }
+                    }
                 }
+            } catch (artErr) {
+                console.warn('[HubStore] Error updating articles on topic rename:', artErr);
             }
-
-            return { ...topicRecord, cloudSaved, cloudError };
-        })();
-
-        pendingTopicSaves.set(slug, saveAction);
-        try {
-            return await saveAction;
-        } finally {
-            pendingTopicSaves.delete(slug);
         }
+
+        let cloudSaved = false;
+        let cloudError = null;
+
+        // Save to Firebase Firestore if connected
+        const db = getFirebaseDb();
+        if (db) {
+            try {
+                await db.collection('topics').doc(topicRecord.id).set(topicRecord);
+                cloudSaved = true;
+            } catch (err) {
+                console.error('Failed to save topic to Firebase:', err);
+                cloudError = err.message;
+            }
+        }
+
+        // Notify app components of topic changes
+        try {
+            window.dispatchEvent(new CustomEvent('hub:topics-updated', { 
+                detail: { topic: topicRecord, oldSlug, oldName, slugChanged: oldSlug !== slug } 
+            }));
+        } catch (e) {}
+
+        return { ...topicRecord, oldSlug, oldName, cloudSaved, cloudError };
+    })();
+
+    pendingTopicSaves.set(mutexKey, saveAction);
+    try {
+        return await saveAction;
+    } finally {
+        pendingTopicSaves.delete(mutexKey);
     }
+}
+
+async function renameTopic(topicIdOrSlug, newName) {
+    if (!newName || !newName.trim()) {
+        throw new Error('New topic name cannot be empty');
+    }
+    const topic = getTopic(topicIdOrSlug);
+    if (!topic) {
+        throw new Error(`Topic not found: ${topicIdOrSlug}`);
+    }
+    return await saveTopic({
+        ...topic,
+        name: newName.trim()
+    });
+}
 
     async function deleteTopic(topicIdOrSlug) {
         const topic = getTopic(topicIdOrSlug);
@@ -1774,6 +1847,7 @@ const HubStore = (() => {
         getTopics,
         getTopic,
         saveTopic,
+        renameTopic,
         reorderTopics,
         deleteTopic,
         getArticles,

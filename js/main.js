@@ -118,6 +118,9 @@ function renderTopicsGrid() {
                 <button type="button" class="topic-card-delete-btn" data-topic-id="${topic.id}" data-topic-name="${escapeHtml(topic.name)}" title="Delete topic">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
+                <button type="button" class="topic-card-edit-btn" data-topic-id="${topic.id}" data-topic-name="${escapeHtml(topic.name)}" title="Rename / Edit topic">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
                 <div class="topic-drag-handle" title="Drag to reorder sequence (PowerPoint slide style)" aria-label="Drag to reorder">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
@@ -156,7 +159,18 @@ function renderTopicsGrid() {
         HubStore.initTopicDragAndDrop(grid);
     }
 
-    document.getElementById('card-add-topic-trigger')?.addEventListener('click', openHomeTopicModal);
+    document.getElementById('card-add-topic-trigger')?.addEventListener('click', () => openHomeTopicModal());
+
+    // Attach card edit button handlers
+    grid.querySelectorAll('.topic-card-edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = btn.getAttribute('data-topic-id');
+            const topic = HubStore.getTopic(id);
+            if (topic) openHomeTopicModal(topic);
+        });
+    });
 
     // Attach card delete button handlers
     grid.querySelectorAll('.topic-card-delete-btn').forEach(btn => {
@@ -284,8 +298,8 @@ function initHomeTopicModal() {
 
     if (!modal) return;
 
-    btnOpen?.addEventListener('click', openHomeTopicModal);
-    btnHeaderOpen?.addEventListener('click', openHomeTopicModal);
+    btnOpen?.addEventListener('click', () => openHomeTopicModal());
+    btnHeaderOpen?.addEventListener('click', () => openHomeTopicModal());
     btnClose?.addEventListener('click', closeHomeTopicModal);
     btnCancel?.addEventListener('click', closeHomeTopicModal);
 
@@ -300,6 +314,7 @@ function initHomeTopicModal() {
             return;
         }
 
+        const topicId = (document.getElementById('home-topic-id')?.value || '').trim();
         const icon = (document.getElementById('home-topic-icon')?.value || '').trim() || '🧠';
         const tag = (document.getElementById('home-topic-tag')?.value || '').trim() || 'Topic';
         const desc = (document.getElementById('home-topic-desc')?.value || '').trim();
@@ -312,25 +327,73 @@ function initHomeTopicModal() {
         btnSave.textContent = 'Saving...';
 
         try {
-            await HubStore.saveTopic({ name, icon, tag, description: desc, customHtml, htmlTitle, htmlTag });
+            await HubStore.saveTopic({
+                id: topicId || undefined,
+                name,
+                icon,
+                tag,
+                description: desc,
+                customHtml,
+                htmlTitle,
+                htmlTag
+            });
             closeHomeTopicModal();
             renderStats();
             renderTopicsGrid();
+            renderRecentPosts();
         } catch (e) {
             alert(`Error saving topic: ${e.message}`);
         } finally {
             isSavingHomeTopic = false;
             btnSave.disabled = false;
-            btnSave.textContent = 'Create Topic';
+            btnSave.textContent = topicId ? 'Save Changes' : 'Create Topic';
         }
     });
 }
 
-function openHomeTopicModal() {
+function openHomeTopicModal(topicToEdit = null) {
     const modal = document.getElementById('modal-home-topic');
-    if (modal) {
-        modal.classList.add('active');
-        document.getElementById('home-topic-name')?.focus();
+    if (!modal) return;
+
+    const titleEl = document.getElementById('modal-home-topic-title');
+    const btnSave = document.getElementById('btn-save-home-topic');
+    const idInput = document.getElementById('home-topic-id');
+    const nameInput = document.getElementById('home-topic-name');
+    const iconInput = document.getElementById('home-topic-icon');
+    const tagInput = document.getElementById('home-topic-tag');
+    const descInput = document.getElementById('home-topic-desc');
+    const customHtmlInput = document.getElementById('home-topic-custom-html');
+    const htmlTitleInput = document.getElementById('home-topic-html-title');
+    const htmlTagInput = document.getElementById('home-topic-html-tag');
+
+    if (topicToEdit) {
+        if (titleEl) titleEl.textContent = `✏️ Rename / Edit Topic — ${topicToEdit.name}`;
+        if (btnSave) btnSave.textContent = 'Save Changes';
+        if (idInput) idInput.value = topicToEdit.id;
+        if (nameInput) nameInput.value = topicToEdit.name;
+        if (iconInput) iconInput.value = topicToEdit.icon || '🧠';
+        if (tagInput) tagInput.value = topicToEdit.tag || '';
+        if (descInput) descInput.value = topicToEdit.description || '';
+        if (customHtmlInput) customHtmlInput.value = topicToEdit.customHtml || '';
+        if (htmlTitleInput) htmlTitleInput.value = topicToEdit.htmlTitle || '';
+        if (htmlTagInput) htmlTagInput.value = topicToEdit.htmlTag || '';
+    } else {
+        if (titleEl) titleEl.textContent = 'Create New Topic';
+        if (btnSave) btnSave.textContent = 'Create Topic';
+        if (idInput) idInput.value = '';
+        if (nameInput) nameInput.value = '';
+        if (iconInput) iconInput.value = '🧠';
+        if (tagInput) tagInput.value = '';
+        if (descInput) descInput.value = '';
+        if (customHtmlInput) customHtmlInput.value = '';
+        if (htmlTitleInput) htmlTitleInput.value = '';
+        if (htmlTagInput) htmlTagInput.value = '';
+    }
+
+    modal.classList.add('active');
+    if (nameInput) {
+        nameInput.focus();
+        if (topicToEdit) nameInput.select();
     }
 }
 
@@ -338,10 +401,14 @@ function closeHomeTopicModal() {
     const modal = document.getElementById('modal-home-topic');
     if (modal) {
         modal.classList.remove('active');
+        const idInput = document.getElementById('home-topic-id');
         const nameInput = document.getElementById('home-topic-name');
         const descInput = document.getElementById('home-topic-desc');
+        const customHtmlInput = document.getElementById('home-topic-custom-html');
+        if (idInput) idInput.value = '';
         if (nameInput) nameInput.value = '';
         if (descInput) descInput.value = '';
+        if (customHtmlInput) customHtmlInput.value = '';
     }
 }
 

@@ -23,29 +23,83 @@ function initTopicsView() {
     renderTopicsView();
 }
 
+function openTopicModalForCreate() {
+    const modal = document.getElementById('modal-topics-page-topic');
+    if (!modal) return;
+    const titleEl = document.getElementById('topic-page-modal-title');
+    const btnSave = document.getElementById('btn-save-topic-page-modal');
+    if (titleEl) titleEl.textContent = 'Create New Topic';
+    if (btnSave) btnSave.textContent = 'Create Topic';
+    const idInput = document.getElementById('page-topic-id');
+    if (idInput) idInput.value = '';
+    const nameInput = document.getElementById('page-topic-name');
+    if (nameInput) nameInput.value = '';
+    const iconInput = document.getElementById('page-topic-icon');
+    if (iconInput) iconInput.value = '🧠';
+    const tagInput = document.getElementById('page-topic-tag');
+    if (tagInput) tagInput.value = '';
+    const descInput = document.getElementById('page-topic-desc');
+    if (descInput) descInput.value = '';
+    const customHtmlInput = document.getElementById('page-topic-custom-html');
+    if (customHtmlInput) customHtmlInput.value = '';
+    const htmlTitleInput = document.getElementById('page-topic-html-title');
+    if (htmlTitleInput) htmlTitleInput.value = '';
+    const htmlTagInput = document.getElementById('page-topic-html-tag');
+    if (htmlTagInput) htmlTagInput.value = '';
+
+    modal.classList.add('active');
+    nameInput?.focus();
+}
+
+function openTopicModalForEdit(topic) {
+    if (!topic) return;
+    const modal = document.getElementById('modal-topics-page-topic');
+    if (!modal) return;
+    const titleEl = document.getElementById('topic-page-modal-title');
+    const btnSave = document.getElementById('btn-save-topic-page-modal');
+    if (titleEl) titleEl.textContent = `✏️ Rename / Edit Topic — ${topic.name}`;
+    if (btnSave) btnSave.textContent = 'Save Changes';
+    const idInput = document.getElementById('page-topic-id');
+    if (idInput) idInput.value = topic.id;
+    const nameInput = document.getElementById('page-topic-name');
+    if (nameInput) nameInput.value = topic.name;
+    const iconInput = document.getElementById('page-topic-icon');
+    if (iconInput) iconInput.value = topic.icon || '🧠';
+    const tagInput = document.getElementById('page-topic-tag');
+    if (tagInput) tagInput.value = topic.tag || '';
+    const descInput = document.getElementById('page-topic-desc');
+    if (descInput) descInput.value = topic.description || '';
+    const customHtmlInput = document.getElementById('page-topic-custom-html');
+    if (customHtmlInput) customHtmlInput.value = topic.customHtml || '';
+    const htmlTitleInput = document.getElementById('page-topic-html-title');
+    if (htmlTitleInput) htmlTitleInput.value = topic.htmlTitle || '';
+    const htmlTagInput = document.getElementById('page-topic-html-tag');
+    if (htmlTagInput) htmlTagInput.value = topic.htmlTag || '';
+
+    modal.classList.add('active');
+    if (nameInput) {
+        nameInput.focus();
+        nameInput.select();
+    }
+}
+
 function initTopicModalsOnce() {
     if (topicModalsBound) return;
     topicModalsBound = true;
 
-    // --- Modal 1: Create Topic Modal ---
+    // --- Modal 1: Create / Edit Topic Modal ---
     const modal = document.getElementById('modal-topics-page-topic');
     const btnAddTopic = document.getElementById('btn-topics-add-topic');
     const btnCloseModal = document.getElementById('btn-close-topic-page-modal');
     const btnCancelModal = document.getElementById('btn-cancel-topic-page-modal');
     const btnSaveTopic = document.getElementById('btn-save-topic-page-modal');
 
-    const openCreateTopicModal = () => {
-        if (!modal) return;
-        modal.classList.add('active');
-        document.getElementById('page-topic-name')?.focus();
-    };
-
     const closeCreateTopicModal = () => {
         if (!modal) return;
         modal.classList.remove('active');
     };
 
-    btnAddTopic?.addEventListener('click', openCreateTopicModal);
+    btnAddTopic?.addEventListener('click', openTopicModalForCreate);
     btnCloseModal?.addEventListener('click', closeCreateTopicModal);
     btnCancelModal?.addEventListener('click', closeCreateTopicModal);
 
@@ -60,6 +114,7 @@ function initTopicModalsOnce() {
             return;
         }
 
+        const topicId = (document.getElementById('page-topic-id')?.value || '').trim();
         const icon = (document.getElementById('page-topic-icon')?.value || '').trim() || '🧠';
         const tag = (document.getElementById('page-topic-tag')?.value || '').trim() || 'Category';
         const desc = (document.getElementById('page-topic-desc')?.value || '').trim();
@@ -72,7 +127,16 @@ function initTopicModalsOnce() {
         btnSaveTopic.textContent = 'Saving...';
 
         try {
-            const saved = await HubStore.saveTopic({ name, icon, tag, description: desc, customHtml, htmlTitle, htmlTag });
+            const saved = await HubStore.saveTopic({
+                id: topicId || undefined,
+                name,
+                icon,
+                tag,
+                description: desc,
+                customHtml,
+                htmlTitle,
+                htmlTag
+            });
             closeCreateTopicModal();
 
             if (nameInput) nameInput.value = '';
@@ -81,13 +145,25 @@ function initTopicModalsOnce() {
             const customHtmlInput = document.getElementById('page-topic-custom-html');
             if (customHtmlInput) customHtmlInput.value = '';
 
-            window.location.href = `topics.html?topic=${saved.slug}`;
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentSlug = urlParams.get('topic');
+
+            if (currentSlug) {
+                // If on single topic view, reload with the updated slug if renamed
+                if (saved.slug !== currentSlug) {
+                    window.location.href = `topics.html?topic=${saved.slug}`;
+                } else {
+                    renderTopicsView();
+                }
+            } else {
+                renderTopicsView();
+            }
         } catch (e) {
             alert(`Error saving topic: ${e.message}`);
         } finally {
             isSavingTopic = false;
             btnSaveTopic.disabled = false;
-            btnSaveTopic.textContent = 'Create Topic';
+            btnSaveTopic.textContent = topicId ? 'Save Changes' : 'Create Topic';
         }
     });
 
@@ -127,7 +203,7 @@ function renderAllTopics(container, pageTitle, pageDesc) {
                 <h3>No Topics Created Yet</h3>
                 <p>Click below to create your first topic category or jump right into the blank editor!</p>
                 <div class="empty-actions">
-                    <button type="button" class="btn btn-primary" onclick="document.getElementById('modal-topics-page-topic').classList.add('active')">
+                    <button type="button" class="btn btn-primary" onclick="openTopicModalForCreate()">
                         + Create First Topic
                     </button>
                     <a href="editor.html" class="btn btn-secondary">+ Write a Note</a>
@@ -152,6 +228,9 @@ function renderAllTopics(container, pageTitle, pageDesc) {
                 <button type="button" class="topic-card-delete-btn" data-topic-id="${topic.id}" data-topic-name="${escapeHtml(topic.name)}" title="Delete topic">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
+                <button type="button" class="topic-card-edit-btn" data-topic-id="${topic.id}" data-topic-name="${escapeHtml(topic.name)}" title="Rename / Edit topic">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
                 <div class="topic-drag-handle" title="Drag to reorder sequence (PowerPoint slide style)" aria-label="Drag to reorder">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/>
@@ -173,7 +252,7 @@ function renderAllTopics(container, pageTitle, pageDesc) {
     });
 
     html += `
-        <div class="topic-card topic-card-add" onclick="document.getElementById('modal-topics-page-topic').classList.add('active')" role="button" tabindex="0">
+        <div class="topic-card topic-card-add" onclick="openTopicModalForCreate()" role="button" tabindex="0">
             <div class="add-card-inner">
                 <div class="add-card-icon">+</div>
                 <h3 class="add-card-title">Add New Topic</h3>
@@ -190,6 +269,17 @@ function renderAllTopics(container, pageTitle, pageDesc) {
     if (grid && typeof HubStore.initTopicDragAndDrop === 'function') {
         HubStore.initTopicDragAndDrop(grid);
     }
+
+    // Attach card edit button handlers
+    container.querySelectorAll('.topic-card-edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = btn.getAttribute('data-topic-id');
+            const topic = HubStore.getTopic(id);
+            if (topic) openTopicModalForEdit(topic);
+        });
+    });
 
     // Attach card delete button handlers
     container.querySelectorAll('.topic-card-delete-btn').forEach(btn => {
@@ -558,7 +648,7 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
         return;
     }
 
-    pageTitle.innerHTML = `<span style="font-size: 0.9em; margin-right: 8px;">${topic.icon || '🧠'}</span>${escapeHtml(topic.name)}`;
+    pageTitle.innerHTML = `<span style="font-size: 0.9em; margin-right: 8px;">${topic.icon || '🧠'}</span><span id="single-topic-title-text">${escapeHtml(topic.name)}</span><button type="button" class="btn-title-rename" id="btn-quick-rename-topic" title="Rename this topic">✏️</button>`;
     const descText = topic.description || `Research notes, derivations, and code for ${topic.name}.`;
     pageDesc.innerHTML = `${escapeHtml(descText)} <span class="topic-reorder-hint" style="margin-left: 10px;">↕️ Drag notes up/down to customize sequence</span>`;
 
@@ -571,6 +661,10 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
             <div class="topic-detail-tag">Category: <strong>${escapeHtml(topic.tag || 'Deep Learning')}</strong></div>
             <div class="topic-detail-actions">
                 <a href="topics.html" class="btn btn-sm btn-secondary">← All Topics</a>
+                <button type="button" class="btn btn-sm btn-secondary" id="btn-edit-topic-details" title="Rename or edit this topic">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Rename / Edit Topic</span>
+                </button>
                 ${hasHtml 
                     ? `<button type="button" class="btn btn-sm btn-secondary" id="btn-open-topic-html-modal">⚙️ Edit HTML Page</button>` 
                     : `<button type="button" class="btn btn-sm btn-secondary" id="btn-open-topic-html-modal">🌐 Embed Custom HTML</button>`}
@@ -790,6 +884,10 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
     // Connect dynamic embed/edit custom HTML buttons to the modal
     document.getElementById('btn-open-topic-html-modal')?.addEventListener('click', () => openTopicHtmlModal(topic));
     document.getElementById('btn-iframe-edit-code')?.addEventListener('click', () => openTopicHtmlModal(topic));
+
+    // Connect Edit / Rename Topic buttons
+    document.getElementById('btn-edit-topic-details')?.addEventListener('click', () => openTopicModalForEdit(topic));
+    document.getElementById('btn-quick-rename-topic')?.addEventListener('click', () => openTopicModalForEdit(topic));
 
     // Attach single topic delete action
     const btnDeleteTopic = document.getElementById('btn-delete-topic');

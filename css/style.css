@@ -580,6 +580,37 @@ img {
     transform: scale(1.1);
 }
 
+.topic-card-edit-btn {
+    position: absolute;
+    top: 1.25rem;
+    right: 3.25rem;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--color-text-faint);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    z-index: 5;
+    opacity: 0.5;
+}
+
+.topic-card:hover .topic-card-edit-btn {
+    opacity: 1;
+    color: var(--color-text-muted);
+}
+
+.topic-card-edit-btn:hover {
+    color: var(--color-accent) !important;
+    background: var(--color-accent-bg);
+    border-color: var(--color-accent-border);
+    transform: scale(1.1);
+}
+
 /* ---- Topic Card Drag & Drop (Slide-style Reordering) ---- */
 .topic-card {
     cursor: grab;
@@ -593,7 +624,7 @@ img {
 .topic-drag-handle {
     position: absolute;
     top: 1.25rem;
-    right: 3.5rem;
+    right: 5.25rem;
     width: 28px;
     height: 28px;
     border-radius: var(--radius-sm);
@@ -616,6 +647,30 @@ img {
     background: var(--color-accent-bg);
     color: var(--color-accent);
     transform: scale(1.15);
+}
+
+.btn-title-rename {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-left: 0.65rem;
+    vertical-align: middle;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-alt);
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-title-rename:hover {
+    color: var(--color-accent);
+    background: var(--color-accent-bg);
+    border-color: var(--color-accent-border);
+    transform: translateY(-1px);
 }
 
 .topic-drag-handle:active {
