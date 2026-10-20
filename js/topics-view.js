@@ -690,7 +690,7 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
                 </button>
             </div>
 
-            <!-- TAB 1: INTERACTIVE VIEW (Embedded Custom HTML or ml.html) -->
+            <!-- TAB 1: INTERACTIVE VIEW (Embedded Custom HTML) -->
             <div id="view-tab-roadmap" class="topic-tab-pane">
                 <div class="topic-roadmap-container">
                     <div class="topic-roadmap-header">

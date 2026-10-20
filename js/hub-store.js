@@ -56,7 +56,7 @@ const HubStore = (() => {
         if (!topic) return false;
         if (topic.customHtml && topic.customHtml.trim().length > 0) return true;
         if (topic.customHtmlUrl && topic.customHtmlUrl.trim().length > 0) return true;
-        return isRoadmapTopic(topic);
+        return false;
     }
 
     function getStarterHtmlTemplate(topicName = 'Deep Learning Topic') {
@@ -211,19 +211,18 @@ const HubStore = (() => {
 
     function getTopicHtmlInfo(topic) {
         if (!topic) return null;
-        const isRoadmap = isRoadmapTopic(topic);
         const hasCode = Boolean(topic.customHtml && topic.customHtml.trim().length > 0);
         const hasUrl = Boolean(topic.customHtmlUrl && topic.customHtmlUrl.trim().length > 0);
 
-        if (!hasCode && !hasUrl && !isRoadmap) return null;
+        if (!hasCode && !hasUrl) return null;
 
         return {
             hasCode,
             hasUrl,
             customHtml: hasCode ? topic.customHtml : '',
-            url: hasUrl ? topic.customHtmlUrl : (isRoadmap && !hasCode ? 'ml.html' : ''),
-            title: topic.htmlTitle || (isRoadmap && !hasCode ? '🗺️ Machine Learning Interactive Roadmap' : (topic.name ? `${topic.name} Interactive View` : '🗺️ Interactive View')),
-            tag: topic.htmlTag || (isRoadmap && !hasCode ? '10 Core Branches' : 'Interactive App')
+            url: hasUrl ? topic.customHtmlUrl : '',
+            title: topic.htmlTitle || (topic.name ? `${topic.name} Interactive View` : '🗺️ Interactive View'),
+            tag: topic.htmlTag || 'Interactive App'
         };
     }
 
