@@ -3809,6 +3809,25 @@ img {
     background: #0b1020;
 }
 
+.topic-roadmap-container:fullscreen,
+.topic-roadmap-container:-webkit-full-screen {
+    margin: 0 !important;
+    border-radius: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    display: flex;
+    flex-direction: column;
+    background: #0b1020;
+    z-index: 999999;
+}
+
+.topic-roadmap-container:fullscreen .topic-roadmap-iframe,
+.topic-roadmap-container:-webkit-full-screen .topic-roadmap-iframe {
+    flex: 1;
+    height: 100% !important;
+    min-height: 0;
+}
+
 /* Featured Roadmap Card in Notes list */
 .featured-roadmap-card {
     display: flex;

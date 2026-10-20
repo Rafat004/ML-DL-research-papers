@@ -701,7 +701,8 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
                         <div class="topic-roadmap-header-actions">
                             <button type="button" class="btn-roadmap-action" id="btn-iframe-expand">Expand All +</button>
                             <button type="button" class="btn-roadmap-action" id="btn-iframe-collapse">Collapse All −</button>
-                            <button type="button" class="btn-roadmap-action btn-roadmap-primary" id="btn-iframe-fullscreen">Open Fullscreen ↗</button>
+                            <button type="button" class="btn-roadmap-action" id="btn-iframe-maximize" title="Maximize on this screen">⛶ Maximize</button>
+                            <button type="button" class="btn-roadmap-action btn-roadmap-primary" id="btn-iframe-fullscreen" title="Open standalone in new tab">Open Fullscreen ↗</button>
                             <button type="button" class="btn-roadmap-action" id="btn-iframe-edit-code">⚙️ Edit Code</button>
                         </div>
                     </div>
@@ -867,18 +868,61 @@ function renderSingleTopic(topicSlug, container, pageTitle, pageDesc) {
             } catch (e) {}
         });
 
+        // Helper to launch HTML code in a dedicated full view window/tab
+        const openCustomHtmlFullscreen = (customHtml, pageTitle) => {
+            let content = customHtml || '';
+            if (!/<title[\s>]/i.test(content)) {
+                const safeTitle = (pageTitle || topic.name || 'Interactive View').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (/<head[\s>]/i.test(content)) {
+                    content = content.replace(/<head([^>]*)>/i, `<head$1><title>${safeTitle}</title>`);
+                } else {
+                    content = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle}</title></head><body>${content}</body></html>`;
+                }
+            }
+            const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+            const blobUrl = URL.createObjectURL(blob);
+            const win = window.open(blobUrl, '_blank');
+            if (!win) {
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        };
+
         // Fullscreen action
         const openFullscreen = () => {
-            if (htmlInfo.url) {
+            if (htmlInfo.hasCode && htmlInfo.customHtml) {
+                openCustomHtmlFullscreen(htmlInfo.customHtml, htmlInfo.title || topic.name);
+            } else if (htmlInfo.url) {
                 window.open(htmlInfo.url, '_blank');
-            } else if (htmlInfo.customHtml) {
-                const blob = new Blob([htmlInfo.customHtml], { type: 'text/html;charset=utf-8' });
-                const blobUrl = URL.createObjectURL(blob);
-                window.open(blobUrl, '_blank');
             }
         };
         document.getElementById('btn-topic-fullscreen')?.addEventListener('click', openFullscreen);
         document.getElementById('btn-iframe-fullscreen')?.addEventListener('click', openFullscreen);
+
+        // Maximize toggle action (in-page fullscreen)
+        const btnMaximize = document.getElementById('btn-iframe-maximize');
+        const roadmapContainer = document.querySelector('.topic-roadmap-container');
+        btnMaximize?.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                roadmapContainer?.requestFullscreen?.().catch(() => {});
+            } else {
+                document.exitFullscreen?.().catch(() => {});
+            }
+        });
+        document.addEventListener('fullscreenchange', () => {
+            if (btnMaximize) {
+                if (document.fullscreenElement) {
+                    btnMaximize.textContent = '✕ Exit Maximize';
+                } else {
+                    btnMaximize.textContent = '⛶ Maximize';
+                }
+            }
+        });
     }
 
     // Connect dynamic embed/edit custom HTML buttons to the modal

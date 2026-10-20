@@ -48,7 +48,7 @@ const HubStore = (() => {
         const s = (topic.slug || '').toLowerCase();
         const n = (topic.name || '').toLowerCase();
         const t = (topic.tag || '').toLowerCase();
-        return s.includes('roadmap') || n.includes('roadmap') || t.includes('roadmap') || Boolean(topic.isRoadmap) || Boolean(topic.customHtml && topic.customHtml.trim().length > 0) || Boolean(topic.customHtmlUrl && topic.customHtmlUrl.trim().length > 0);
+        return s.includes('roadmap') || n.includes('roadmap') || t.includes('roadmap') || Boolean(topic.isRoadmap);
     }
 
     /* ---- Helper: Detect if topic has an interactive HTML page ---- */
@@ -221,9 +221,9 @@ const HubStore = (() => {
             hasCode,
             hasUrl,
             customHtml: hasCode ? topic.customHtml : '',
-            url: hasUrl ? topic.customHtmlUrl : (isRoadmap ? 'ml.html' : ''),
-            title: topic.htmlTitle || (isRoadmap ? '🗺️ Machine Learning Interactive Roadmap' : '🗺️ Interactive View'),
-            tag: topic.htmlTag || (isRoadmap ? '10 Core Branches' : 'Interactive App')
+            url: hasUrl ? topic.customHtmlUrl : (isRoadmap && !hasCode ? 'ml.html' : ''),
+            title: topic.htmlTitle || (isRoadmap && !hasCode ? '🗺️ Machine Learning Interactive Roadmap' : (topic.name ? `${topic.name} Interactive View` : '🗺️ Interactive View')),
+            tag: topic.htmlTag || (isRoadmap && !hasCode ? '10 Core Branches' : 'Interactive App')
         };
     }
 

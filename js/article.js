@@ -203,7 +203,8 @@ function initArticleViewer() {
                 <div class="topic-roadmap-header-actions">
                     <button type="button" class="btn-roadmap-action" id="btn-art-html-expand">Expand All +</button>
                     <button type="button" class="btn-roadmap-action" id="btn-art-html-collapse">Collapse All −</button>
-                    <button type="button" class="btn-roadmap-action btn-roadmap-primary" id="btn-art-html-fullscreen">Open Fullscreen ↗</button>
+                    <button type="button" class="btn-roadmap-action" id="btn-art-html-maximize" title="Maximize on this screen">⛶ Maximize</button>
+                    <button type="button" class="btn-roadmap-action btn-roadmap-primary" id="btn-art-html-fullscreen" title="Open standalone in new tab">Open Fullscreen ↗</button>
                 </div>
             </div>
             <iframe class="topic-roadmap-iframe" id="article-html-iframe" title="${escapeHtml(article.title)}"></iframe>
@@ -219,8 +220,45 @@ function initArticleViewer() {
             try { artIframe?.contentWindow?.document.querySelectorAll('details.branch, details').forEach(d => d.open = false); } catch (e) {}
         });
         interactiveContainer.querySelector('#btn-art-html-fullscreen')?.addEventListener('click', () => {
-            const blob = new Blob([article.customHtml], { type: 'text/html;charset=utf-8' });
-            window.open(URL.createObjectURL(blob), '_blank');
+            let content = article.customHtml || '';
+            if (!/<title[\s>]/i.test(content)) {
+                const safeTitle = (article.title || 'Interactive Note View').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (/<head[\s>]/i.test(content)) {
+                    content = content.replace(/<head([^>]*)>/i, `<head$1><title>${safeTitle}</title>`);
+                } else {
+                    content = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle}</title></head><body>${content}</body></html>`;
+                }
+            }
+            const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+            const blobUrl = URL.createObjectURL(blob);
+            const win = window.open(blobUrl, '_blank');
+            if (!win) {
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        });
+
+        const btnArtMaximize = interactiveContainer.querySelector('#btn-art-html-maximize');
+        btnArtMaximize?.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                interactiveContainer.requestFullscreen?.().catch(() => {});
+            } else {
+                document.exitFullscreen?.().catch(() => {});
+            }
+        });
+        document.addEventListener('fullscreenchange', () => {
+            if (btnArtMaximize) {
+                if (document.fullscreenElement) {
+                    btnArtMaximize.textContent = '✕ Exit Maximize';
+                } else {
+                    btnArtMaximize.textContent = '⛶ Maximize';
+                }
+            }
         });
     }
 
