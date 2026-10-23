@@ -336,15 +336,15 @@ function initEditor() {
         if (/(?:^|\n)\s*(?:if\s+__name__\s*==\s*['"]__main__['"])/.test(trimmed)) score += 3;
 
         // Moderate indicators (+2)
-        if (/\b(?:np|torch|nn|F|plt|pd|tf|scipy|widgets|display)\.[a-zA-Z_]/.test(trimmed)) score += 2;
+        if (/\b(?:np|torch|nn|F|plt|pd|tf|scipy|widgets|display|sklearn)\.[a-zA-Z_]/.test(trimmed)) score += 2;
         if (/(?:^|\n)\s*(?:for\s+[a-zA-Z_]\w*\s+in\s+|while\s+|elif\s+|except(?:\s+[a-zA-Z_]*)?\s*:)/.test(trimmed)) score += 2;
-        if (/\b(?:print|len|range|enumerate|zip)\s*\(/.test(trimmed)) score += 1;
+        if (/\b(?:print|len|range|enumerate|zip|fit|predict|train_test_split)\s*\(/.test(trimmed)) score += 1;
         if (/(?:^|\n)\s*self\.[a-zA-Z_]/.test(trimmed)) score += 2;
         if (/\b(?:return|yield)\s+/.test(trimmed)) score += 1;
 
         // Python style comments with assignments or brackets (+1)
         if (/(?:^|\n)\s*#[ \t]+/.test(trimmed) && /(?:=|\[|\(|\{)/.test(trimmed)) score += 1;
-        if (/(?:^|\n)\s*[a-zA-Z_]\w*\s*=\s*(?:np\.|torch\.|\[|\{|\(|widgets\.)/.test(trimmed)) score += 2;
+        if (/(?:^|\n)\s*[a-zA-Z_]\w*\s*=\s*(?:np\.|torch\.|pd\.|\[|\{|\(|widgets\.)/.test(trimmed)) score += 2;
         if (/:\s*\r?\n\s{4,}\S/.test(trimmed)) score += 2;
 
         return score >= 2;
@@ -389,8 +389,13 @@ function initEditor() {
     function reconstructBrokenMath(text) {
         if (!text || typeof text !== 'string') return null;
 
+        const trimmed = text.trim();
+        // NEVER treat as broken math if it looks like code or English paragraphs
+        if (isLikelyPythonCode(trimmed)) return null;
+        if (/(?:^|\n)\s*(?:import|from|def|class|function|const|let|var|if|for|while|return|public|private)\b/m.test(trimmed)) return null;
+
         // Normalize newlines, spaces and common unicode math symbols
-        const raw = text
+        const raw = trimmed
             .replace(/\r\n/g, '\n')
             .replace(/\r/g, '\n')
             .replace(/\u00A0/g, ' ')
@@ -409,14 +414,17 @@ function initEditor() {
 
         // Extract lines, trim them
         const rawLines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-        if (rawLines.length === 0) return null;
+        if (rawLines.length < 3) return null;
 
-        // Check if it's broken multi-line math (e.g. many short lines with math tokens)
+        // Check if it's genuinely broken multi-line math (e.g. fragmented tokens from PDF)
         const hasMathSigns = /[=+\-*\/_^\(\)\[\]\{\}∑∏∫∂\\]/.test(raw) || /\b(?:SSE|MSE|RMSE|MAE)\b/i.test(raw);
         const shortLines = rawLines.filter(l => l.length <= 4);
-        const isFragmented = rawLines.length >= 3 && (shortLines.length / rawLines.length) >= 0.4;
+        const isFragmented = (shortLines.length / rawLines.length) >= 0.7; // At least 70% of lines must be fragments <= 4 chars
+        const totalChars = rawLines.reduce((acc, l) => acc + l.length, 0);
+        const avgLineLen = totalChars / rawLines.length;
 
-        if (!isFragmented && !hasMathSigns) {
+        // Strictly require fragmentation, math signs, and tiny average line length (< 8 chars)
+        if (!isFragmented || !hasMathSigns || avgLineLen > 8) {
             return null; // Not broken math
         }
 
@@ -543,6 +551,196 @@ function initEditor() {
             .trim();
 
         return result ? `$$\n${result}\n$$` : null;
+    }
+
+    /* ---- ChatGPT & Rich HTML to Markdown Converter ---- */
+    function convertChatGPTOrRichHtmlToMarkdown(html, plainFallback = '') {
+        if (!html || typeof html !== 'string') return null;
+
+        // Quick check for semantic content worth preserving
+        const hasRichStructure = /<(?:pre|code|h[1-6]|p|ul|ol|li|table|blockquote|span\s+class=["'][^"']*katex|annotation)/i.test(html);
+        if (!hasRichStructure) return null;
+
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const body = doc.body;
+            if (!body) return null;
+
+            // 1. Remove ChatGPT UI buttons ("Copy code", feedback, sr-only texts)
+            body.querySelectorAll('button, .sr-only, [aria-label*="Copy" i]').forEach(el => el.remove());
+
+            // 2. Convert KaTeX math elements (extract pristine LaTeX from <annotation>)
+            const katexNodes = Array.from(body.querySelectorAll('.katex, [data-latex]'));
+            katexNodes.forEach(kNode => {
+                const annotation = kNode.querySelector('annotation[encoding="application/x-tex"]') || 
+                                   kNode.querySelector('annotation');
+                let latex = annotation ? annotation.textContent.trim() : (kNode.getAttribute('data-latex') || '');
+                if (latex) {
+                    latex = decodeHtmlEntities(latex);
+                    const isDisplay = kNode.closest('.katex-display') || 
+                                      kNode.classList.contains('katex-display') ||
+                                      kNode.parentElement?.tagName.toLowerCase() === 'div';
+                    
+                    const marker = isDisplay ? `\n\n$$\n${latex}\n$$\n\n` : ` $${latex}$ `;
+                    const textNode = doc.createTextNode(marker);
+
+                    const targetToReplace = kNode.closest('.katex-display') || kNode;
+                    if (targetToReplace.parentNode) {
+                        targetToReplace.parentNode.replaceChild(textNode, targetToReplace);
+                    }
+                }
+            });
+
+            // 3. Convert MathJax script tags
+            body.querySelectorAll('script[type*="math/tex"]').forEach(script => {
+                const isDisplay = (script.getAttribute('type') || '').includes('mode=display');
+                const latex = decodeHtmlEntities(script.textContent.trim());
+                if (latex) {
+                    const marker = isDisplay ? `\n\n$$\n${latex}\n$$\n\n` : ` $${latex}$ `;
+                    script.replaceWith(doc.createTextNode(marker));
+                }
+            });
+
+            // 4. Convert Code Blocks (<pre>) - preserve indentation, newlines, and language
+            const preBlocks = Array.from(body.querySelectorAll('pre'));
+            preBlocks.forEach(pre => {
+                const codeEl = pre.querySelector('code');
+                let lang = '';
+
+                // Extract language from code element or pre element class
+                const classStr = `${codeEl?.className || ''} ${pre.className || ''}`;
+                const langMatch = classStr.match(/(?:language|lang)-([a-zA-Z0-9_\-\+]+)/i);
+                if (langMatch) {
+                    lang = langMatch[1].toLowerCase();
+                } else {
+                    // Check sibling or parent span (ChatGPT language indicator header)
+                    const parentContainer = pre.parentElement;
+                    if (parentContainer) {
+                        const headerSpan = parentContainer.querySelector('span:not(.katex)');
+                        if (headerSpan) {
+                            const word = headerSpan.textContent.trim().toLowerCase();
+                            if (['python', 'py', 'javascript', 'js', 'html', 'css', 'bash', 'sh', 'sql', 'cpp', 'c', 'java', 'json', 'yaml', 'r', 'rust'].includes(word)) {
+                                lang = word;
+                            }
+                        }
+                    }
+                }
+
+                // Remove buttons or headers inside pre
+                pre.querySelectorAll('button, .copy-code-button').forEach(b => b.remove());
+
+                let codeContent = codeEl ? codeEl.textContent : pre.textContent;
+                codeContent = codeContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                // Trim leading/trailing blank lines but preserve indentation
+                codeContent = codeContent.replace(/^\n+|\n+$/g, '');
+
+                if (!lang && isLikelyPythonCode(codeContent)) {
+                    lang = 'python';
+                }
+
+                const fencedCode = `\n\n\`\`\`${lang}\n${codeContent}\n\`\`\`\n\n`;
+                pre.replaceWith(doc.createTextNode(fencedCode));
+            });
+
+            // 5. Recursively convert the remaining DOM to clean Markdown
+            function domToMarkdown(node) {
+                if (!node) return '';
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return node.textContent;
+                }
+                if (node.nodeType !== Node.ELEMENT_NODE) {
+                    return '';
+                }
+
+                const tag = node.tagName.toLowerCase();
+                const children = Array.from(node.childNodes).map(domToMarkdown).join('');
+
+                switch (tag) {
+                    case 'h1':
+                        return `\n\n# ${children.trim()}\n\n`;
+                    case 'h2':
+                        return `\n\n## ${children.trim()}\n\n`;
+                    case 'h3':
+                        return `\n\n### ${children.trim()}\n\n`;
+                    case 'h4':
+                        return `\n\n#### ${children.trim()}\n\n`;
+                    case 'h5':
+                        return `\n\n##### ${children.trim()}\n\n`;
+                    case 'h6':
+                        return `\n\n###### ${children.trim()}\n\n`;
+                    case 'p':
+                        return `\n\n${children.trim()}\n\n`;
+                    case 'br':
+                        return '\n';
+                    case 'hr':
+                        return '\n\n---\n\n';
+                    case 'strong':
+                    case 'b':
+                        return children.trim() ? `**${children.trim()}**` : '';
+                    case 'em':
+                    case 'i':
+                        return children.trim() ? `*${children.trim()}*` : '';
+                    case 'code':
+                        // Pre code blocks were already converted above
+                        return children.trim() ? ` \`${children.trim()}\` ` : '';
+                    case 'blockquote': {
+                        const bqLines = children.trim().split('\n');
+                        return `\n\n${bqLines.map(l => `> ${l}`).join('\n')}\n\n`;
+                    }
+                    case 'ul':
+                        return `\n\n${children.trim()}\n\n`;
+                    case 'ol':
+                        return `\n\n${children.trim()}\n\n`;
+                    case 'li': {
+                        const parent = node.parentElement;
+                        if (parent && parent.tagName.toLowerCase() === 'ol') {
+                            const idx = Array.from(parent.children).indexOf(node) + 1;
+                            return `${idx}. ${children.trim()}\n`;
+                        }
+                        return `- ${children.trim()}\n`;
+                    }
+                    case 'a': {
+                        const href = node.getAttribute('href');
+                        return href ? `[${children.trim()}](${href})` : children;
+                    }
+                    case 'table':
+                        return '\n\n' + convertTableToMarkdown(node) + '\n\n';
+                    default:
+                        return children;
+                }
+            }
+
+            function convertTableToMarkdown(tableEl) {
+                const rows = Array.from(tableEl.querySelectorAll('tr'));
+                if (rows.length === 0) return '';
+                let md = '';
+                rows.forEach((row, rIdx) => {
+                    const cells = Array.from(row.querySelectorAll('th, td'));
+                    const rowContent = '| ' + cells.map(c => c.textContent.trim().replace(/\|/g, '\\|')).join(' | ') + ' |';
+                    md += rowContent + '\n';
+                    if (rIdx === 0) {
+                        md += '| ' + cells.map(() => '---').join(' | ') + ' |\n';
+                    }
+                });
+                return md;
+            }
+
+            let mdResult = domToMarkdown(body);
+
+            // Clean up whitespace: normalize newlines, limit to 2 consecutive newlines
+            mdResult = mdResult
+                .replace(/\r\n/g, '\n')
+                .replace(/\r/g, '\n')
+                .replace(/[ \t]+\n/g, '\n') // strip trailing spaces
+                .replace(/\n{3,}/g, '\n\n') // at most two newlines
+                .trim();
+
+            return mdResult || null;
+        } catch (e) {
+            console.warn('ChatGPT/HTML to Markdown conversion failed:', e);
+            return null;
+        }
     }
 
     /* ---- Toolbar Actions (Routed to Respective Slot) ---- */
@@ -771,6 +969,25 @@ if __name__ == "__main__":
                 scheduleSlotLivePreview(slot);
                 markDirty();
             });
+
+            // Smart paste handler for Description: convert rich HTML/math if copied from ChatGPT
+            excerptInput.addEventListener('paste', (e) => {
+                const clipboardData = e.clipboardData || window.clipboardData;
+                if (!clipboardData) return;
+                const pastedText = (clipboardData.getData('text/plain') || clipboardData.getData('text') || '').replace(/\r\n/g, '\n');
+                const htmlData = clipboardData.getData('text/html') || '';
+                if (htmlData && /<(?:p|h[1-6]|ul|ol|li|strong|b|em|i|span\s+class=["'][^"']*katex|annotation)/i.test(htmlData)) {
+                    const converted = convertChatGPTOrRichHtmlToMarkdown(htmlData, pastedText);
+                    if (converted && converted.trim()) {
+                        e.preventDefault();
+                        const start = excerptInput.selectionStart;
+                        const end = excerptInput.selectionEnd;
+                        excerptInput.setRangeText(converted.trim(), start, end, 'end');
+                        scheduleSlotLivePreview(slot);
+                        markDirty();
+                    }
+                }
+            });
         }
 
         if (mdInputEl) {
@@ -779,45 +996,103 @@ if __name__ == "__main__":
                 markDirty();
             });
 
-            // Smart paste handler: Auto-detect math formulas or raw Python code from ChatGPT/IDEs
+            // Smart paste handler: Preserves ChatGPT formatting, converts rich HTML to Markdown,
+            // auto-wraps Python code & LaTeX formulas, and prevents single-line flattening
             mdInputEl.addEventListener('paste', (e) => {
                 const clipboardData = e.clipboardData || window.clipboardData;
                 if (!clipboardData) return;
-                const pastedText = clipboardData.getData('text');
+
+                const pastedText = (clipboardData.getData('text/plain') || clipboardData.getData('text') || '').replace(/\r\n/g, '\n');
+                const htmlData = clipboardData.getData('text/html') || '';
+
+                if (!pastedText && !htmlData) return;
+
+                // Priority 1: Check if inside a code block already
+                // If cursor is already inside a markdown code block (```...```), paste raw text as-is without wrapping
+                if (isCursorInsideCodeBlock(mdInputEl)) {
+                    if (pastedText) {
+                        e.preventDefault();
+                        const start = mdInputEl.selectionStart;
+                        const end = mdInputEl.selectionEnd;
+                        mdInputEl.setRangeText(pastedText, start, end, 'end');
+                        scheduleSlotLivePreview(slot);
+                        markDirty();
+                    }
+                    return;
+                }
+
+                // Priority 2: Rich HTML conversion (ChatGPT, Claude, Gemini, DeepSeek, web pages)
+                // If clipboard has rich HTML with structure (headings, code blocks, KaTeX math, lists, paragraphs)
+                if (htmlData && /<(?:pre|code|h[1-6]|p|ul|ol|li|table|blockquote|span\s+class=["'][^"']*katex|annotation)/i.test(htmlData)) {
+                    const convertedMd = convertChatGPTOrRichHtmlToMarkdown(htmlData, pastedText);
+                    if (convertedMd && convertedMd.trim()) {
+                        e.preventDefault();
+                        const start = mdInputEl.selectionStart;
+                        const end = mdInputEl.selectionEnd;
+                        const prefix = (start > 0 && mdInputEl.value[start - 1] !== '\n') ? '\n\n' : '';
+                        const suffix = (end < mdInputEl.value.length && mdInputEl.value[end] !== '\n') ? '\n\n' : '\n';
+                        const insertion = `${prefix}${convertedMd.trim()}${suffix}`;
+                        mdInputEl.setRangeText(insertion, start, end, 'end');
+                        scheduleSlotLivePreview(slot);
+                        markDirty();
+                        showToast('✓ Preserved ChatGPT formatting with code blocks, math & headings!', 'success');
+                        return;
+                    }
+                }
+
+                // Priority 3: Standalone KaTeX / Math from HTML (single formula)
+                if (htmlData) {
+                    const htmlLatex = extractLatexFromHtml(htmlData);
+                    if (htmlLatex && !pastedText.includes('\n') && pastedText.length < 300) {
+                        e.preventDefault();
+                        const wrapped = `$$\n${htmlLatex}\n$$\n`;
+                        const start = mdInputEl.selectionStart;
+                        const end = mdInputEl.selectionEnd;
+                        mdInputEl.setRangeText(wrapped, start, end, 'end');
+                        scheduleSlotLivePreview(slot);
+                        markDirty();
+                        showToast('✓ Extracted clean LaTeX formula ($$...$$)!', 'success');
+                        return;
+                    }
+                }
+
                 if (!pastedText) return;
 
-                // 1. Try extracting raw LaTeX from clipboard HTML (ChatGPT / KaTeX / MathJax copies)
-                const htmlData = clipboardData.getData('text/html');
-                const htmlLatex = extractLatexFromHtml(htmlData);
-                if (htmlLatex) {
-                    e.preventDefault();
-                    const wrapped = `$$\n${htmlLatex}\n$$\n`;
-                    const start = mdInputEl.selectionStart;
-                    const end = mdInputEl.selectionEnd;
-                    mdInputEl.setRangeText(wrapped, start, end, 'end');
-                    scheduleSlotLivePreview(slot);
-                    markDirty();
-                    showToast('✓ Extracted clean LaTeX from ChatGPT formula!', 'success');
-                    return;
-                }
+                // Priority 4: Existing formatted Markdown (fenced code, headings, or $$ math)
+                const hasExistingMarkdown = /^```[\s\S]*```$/m.test(pastedText.trim()) || 
+                                           /^(?:#{1,6}\s+|```|\$\$)/m.test(pastedText);
 
-                // 2. Universal Broken Math Reconstructor from plain text (works for ALL formulas)
-                const reconstructed = reconstructBrokenMath(pastedText);
-                if (reconstructed) {
+                if (hasExistingMarkdown) {
                     e.preventDefault();
                     const start = mdInputEl.selectionStart;
                     const end = mdInputEl.selectionEnd;
-                    mdInputEl.setRangeText(reconstructed, start, end, 'end');
+                    mdInputEl.setRangeText(pastedText, start, end, 'end');
                     scheduleSlotLivePreview(slot);
                     markDirty();
-                    showToast('✓ Auto-reconstructed formula into clean LaTeX!', 'success');
+                    showToast('✓ Pasted Markdown content preserving structure!', 'success');
                     return;
                 }
 
-                // 3. Auto-wrap unwrapped single/multi-line LaTeX formulas
-                if (!pastedText.trim().startsWith('$') && !pastedText.trim().startsWith('```') && !isCursorInsideCodeBlock(mdInputEl)) {
-                    const isMathEquation = /(\\[a-zA-Z]+|[a-zA-Z]_[ijkntm0-9]|\^[0-9a-zA-Z])/.test(pastedText) && /[=+\-*\/]/.test(pastedText);
-                    if (isMathEquation && !isLikelyPythonCode(pastedText)) {
+                // Priority 5: Raw Python code auto-wrapping (e.g. from IDE or ChatGPT code copy button)
+                if (isLikelyPythonCode(pastedText)) {
+                    e.preventDefault();
+                    const cleanCode = pastedText.trim();
+                    const wrappedCode = `\`\`\`python\n${cleanCode}\n\`\`\`\n`;
+                    const start = mdInputEl.selectionStart;
+                    const end = mdInputEl.selectionEnd;
+                    mdInputEl.setRangeText(wrappedCode, start, end, 'end');
+                    scheduleSlotLivePreview(slot);
+                    markDirty();
+                    showToast('✓ Python code auto-wrapped with syntax highlighting!', 'success');
+                    return;
+                }
+
+                // Priority 6: Standalone single/multi-line LaTeX formulas
+                if (!pastedText.trim().startsWith('$') && !pastedText.trim().startsWith('```')) {
+                    const isMathEquation = /(\\[a-zA-Z]+|[a-zA-Z]_[ijkntm0-9]|\^[0-9a-zA-Z])/.test(pastedText) && 
+                                           /[=+\-*\/]/.test(pastedText) && 
+                                           !isLikelyPythonCode(pastedText);
+                    if (isMathEquation && !/^[a-zA-Z\s]{20,}/.test(pastedText)) {
                         e.preventDefault();
                         const wrapped = `$$\n${pastedText.trim()}\n$$\n`;
                         const start = mdInputEl.selectionStart;
@@ -830,23 +1105,26 @@ if __name__ == "__main__":
                     }
                 }
 
-                // Don't auto-wrap if cursor is already inside a code block
-                if (isCursorInsideCodeBlock(mdInputEl)) return;
-
-                // Don't auto-wrap if already formatted as a code block (starts with ```)
-                if (pastedText.trim().startsWith('```')) return;
-
-                // Check if it's likely Python code
-                if (isLikelyPythonCode(pastedText)) {
+                // Priority 7: Genuinely fragmented broken math tokens from PDF copies
+                const reconstructed = reconstructBrokenMath(pastedText);
+                if (reconstructed) {
                     e.preventDefault();
-                    const wrappedCode = `\`\`\`python\n${pastedText.trim()}\n\`\`\`\n`;
                     const start = mdInputEl.selectionStart;
                     const end = mdInputEl.selectionEnd;
-                    mdInputEl.setRangeText(wrappedCode, start, end, 'end');
+                    mdInputEl.setRangeText(reconstructed, start, end, 'end');
                     scheduleSlotLivePreview(slot);
                     markDirty();
-                    showToast('✓ Python code auto-wrapped in code block with syntax highlighting!', 'success');
+                    showToast('✓ Auto-reconstructed broken formula into clean LaTeX!', 'success');
+                    return;
                 }
+
+                // Priority 8: Standard plain text paste, preserving exact newlines & indentation
+                e.preventDefault();
+                const start = mdInputEl.selectionStart;
+                const end = mdInputEl.selectionEnd;
+                mdInputEl.setRangeText(pastedText, start, end, 'end');
+                scheduleSlotLivePreview(slot);
+                markDirty();
             });
         }
 

@@ -2783,6 +2783,9 @@ img {
     outline: none;
     resize: none;
     background: transparent;
+    white-space: pre-wrap;
+    word-break: break-word;
+    tab-size: 4;
 }
 
 .preview-pane {
